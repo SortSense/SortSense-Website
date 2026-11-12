@@ -36,10 +36,12 @@ export async function updateSession(request: NextRequest) {
 
   const claims = data?.claims
 
-  if (!claims && !request.nextUrl.pathname.startsWith('/login')) {
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith('/dashboard')
+
+  if (!claims && isProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-
     return NextResponse.redirect(url)
   }
 
