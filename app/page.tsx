@@ -4,9 +4,7 @@ import {
   MapPin,
   BarChart3,
   Cpu,
-  ShieldCheck,
   ArrowRight,
-  TrendingUp,
 } from 'lucide-react';
 
 export default function Home() {

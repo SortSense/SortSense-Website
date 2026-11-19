@@ -92,12 +92,27 @@ export default function DashboardPage() {
 
   // Periodic REST polling every 5 seconds (hard constraint: No WebSockets on Vercel)
   useEffect(() => {
-    fetchDashboardData();
+    let isSubscribed = true;
+
+    const poll = async () => {
+      if (!isSubscribed) return;
+      await fetchDashboardData();
+    };
+
+    // Trigger initial poll asynchronously
+    const initialTimer = setTimeout(() => {
+      poll();
+    }, 0);
+
     const interval = setInterval(() => {
-      fetchDashboardData();
+      poll();
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isSubscribed = false;
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [fetchDashboardData]);
 
   // Handle staff sign out
