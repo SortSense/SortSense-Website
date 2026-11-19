@@ -18,10 +18,10 @@ import {
   TrendingUp,
   Award,
   Recycle,
+  Sparkles,
+  Clock,
   CheckCircle2,
   XCircle,
-  Clock,
-  Sparkles,
 } from 'lucide-react';
 
 interface AnalyticsViewProps {
@@ -31,10 +31,10 @@ interface AnalyticsViewProps {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Plastic: '#3B82F6',
-  Paper: '#F59E0B',
-  Metal: '#94A3B8',
-  'General Waste': '#475569',
+  Plastic: '#38A6A0',
+  Paper: '#D49A3A',
+  Metal: '#71849A',
+  'General Waste': '#776F68',
 };
 
 export default function AnalyticsView({
@@ -47,12 +47,12 @@ export default function AnalyticsView({
       <div className="space-y-6 animate-pulse">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-gray-100 rounded-2xl" />
+            <div key={i} className="h-28 bg-[#EFF2EF] rounded-xl" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-72 bg-gray-100 rounded-2xl" />
-          <div className="h-72 bg-gray-100 rounded-2xl" />
+          <div className="h-72 bg-[#EFF2EF] rounded-xl" />
+          <div className="h-72 bg-[#EFF2EF] rounded-xl" />
         </div>
       </div>
     );
@@ -83,99 +83,101 @@ export default function AnalyticsView({
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Sorted */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E1E8E1] shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">
+            <span className="text-[11px] font-bold text-[#65736A] uppercase tracking-wider block font-display">
               Total Sorted Today
             </span>
-            <span className="text-3xl font-extrabold text-gray-900 mt-1 block font-mono">
+            <span className="text-3xl font-extrabold text-[#202A25] mt-1 block font-mono">
               {total_items_today.toLocaleString()}
             </span>
-            <span className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-1">
+            <span className="text-xs text-[#176B45] font-medium flex items-center gap-1 mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              Live hardware feeds
+              Live verified drops
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-            <Recycle className="w-6 h-6" />
+          <div className="w-11 h-11 rounded-xl bg-[#E9F3ED] text-[#176B45] flex items-center justify-center">
+            <Recycle className="w-5 h-5" />
           </div>
         </div>
 
         {/* Sorting Accuracy */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E1E8E1] shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">
+            <span className="text-[11px] font-bold text-[#65736A] uppercase tracking-wider block font-display">
               Sorting Accuracy
             </span>
-            <span className="text-3xl font-extrabold text-gray-900 mt-1 block font-mono">
+            <span className="text-3xl font-extrabold text-[#202A25] mt-1 block font-mono">
               {sorting_accuracy_pct}%
             </span>
             <span
               className={`text-xs font-medium flex items-center gap-1 mt-1 ${
                 sorting_accuracy_pct >= 85
-                  ? 'text-emerald-600'
+                  ? 'text-[#176B45]'
                   : sorting_accuracy_pct >= 70
-                  ? 'text-amber-600'
-                  : 'text-red-600'
+                  ? 'text-[#C48419]'
+                  : 'text-[#C84F49]'
               }`}
             >
               <Award className="w-3.5 h-3.5" />
-              {sorting_accuracy_pct >= 85 ? 'Campus High Benchmark' : 'Needs User Guidance'}
+              {sorting_accuracy_pct >= 85 ? 'High Accuracy Standard' : 'Requires Guidance'}
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-            <Award className="w-6 h-6" />
+          <div className="w-11 h-11 rounded-xl bg-[#E9F6F5] text-[#38A6A0] flex items-center justify-center">
+            <Award className="w-5 h-5" />
           </div>
         </div>
 
         {/* Recycled Items Diverted */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E1E8E1] shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">
+            <span className="text-[11px] font-bold text-[#65736A] uppercase tracking-wider block font-display">
               Recyclables Diverted
             </span>
-            <span className="text-3xl font-extrabold text-gray-900 mt-1 block font-mono">
+            <span className="text-3xl font-extrabold text-[#202A25] mt-1 block font-mono">
               {totalRecycled.toLocaleString()}
             </span>
-            <span className="text-xs text-blue-600 font-medium flex items-center gap-1 mt-1">
+            <span className="text-xs text-[#38A6A0] font-medium flex items-center gap-1 mt-1">
               <Sparkles className="w-3.5 h-3.5" />
-              {recyclingRatePct}% overall diversion
+              {recyclingRatePct}% diversion ratio
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-            <Sparkles className="w-6 h-6" />
+          <div className="w-11 h-11 rounded-xl bg-[#FCF5E9] text-[#D49A3A] flex items-center justify-center">
+            <Sparkles className="w-5 h-5" />
           </div>
         </div>
 
         {/* General Waste */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E1E8E1] shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">
+            <span className="text-[11px] font-bold text-[#65736A] uppercase tracking-wider block font-display">
               General Waste
             </span>
-            <span className="text-3xl font-extrabold text-gray-900 mt-1 block font-mono">
+            <span className="text-3xl font-extrabold text-[#202A25] mt-1 block font-mono">
               {breakdown.general.toLocaleString()}
             </span>
-            <span className="text-xs text-gray-500 font-medium flex items-center gap-1 mt-1">
-              Incineration & Landfill
+            <span className="text-xs text-[#65736A] font-medium flex items-center gap-1 mt-1">
+              Non-recyclable volume
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center">
-            <Clock className="w-6 h-6" />
+          <div className="w-11 h-11 rounded-xl bg-[#F4F2F0] text-[#776F68] flex items-center justify-center">
+            <Clock className="w-5 h-5" />
           </div>
         </div>
       </div>
 
-      {/* Recharts Row */}
+      {/* Recharts Visualizations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Bar Chart: Daily Category Breakdown */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs">
+        <div className="bg-white p-6 rounded-xl border border-[#E1E8E1] shadow-2xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">Category Breakdown (Daily)</h3>
-              <p className="text-xs text-gray-500">Total items deposited per waste stream</p>
+              <h3 className="font-bold text-[#202A25] text-sm font-display">
+                Category Breakdown (Daily)
+              </h3>
+              <p className="text-xs text-[#65736A]">Total verified items per waste stream</p>
             </div>
-            <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+            <span className="text-xs font-mono bg-[#EFF2EF] text-[#65736A] px-2 py-0.5 rounded font-medium">
               Today
             </span>
           </div>
@@ -183,32 +185,35 @@ export default function AnalyticsView({
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#65736A' }} stroke="#E1E8E1" />
+                <YAxis tick={{ fontSize: 12, fill: '#65736A' }} stroke="#E1E8E1" />
                 <Tooltip
-                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                  cursor={{ fill: 'rgba(23, 107, 69, 0.04)' }}
                   contentStyle={{
                     backgroundColor: '#ffffff',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    border: '1px solid #E1E8E1',
                     fontSize: '12px',
+                    color: '#202A25',
                   }}
                 />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Pie/Donut Chart: Waste Stream Composition */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs">
+        {/* Donut Chart: Stream Distribution */}
+        <div className="bg-white p-6 rounded-xl border border-[#E1E8E1] shadow-2xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">Waste Stream Distribution</h3>
-              <p className="text-xs text-gray-500">Proportional volume by compartment</p>
+              <h3 className="font-bold text-[#202A25] text-sm font-display">
+                Waste Stream Distribution
+              </h3>
+              <p className="text-xs text-[#65736A]">Proportional volume by compartment</p>
             </div>
-            <span className="text-xs font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-medium">
-              Recharts
+            <span className="text-xs font-mono bg-[#E9F3ED] text-[#176B45] px-2 py-0.5 rounded font-semibold">
+              Live Ratio
             </span>
           </div>
 
@@ -231,9 +236,10 @@ export default function AnalyticsView({
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#ffffff',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    border: '1px solid #E1E8E1',
                     fontSize: '12px',
+                    color: '#202A25',
                   }}
                 />
                 <Legend
@@ -249,24 +255,26 @@ export default function AnalyticsView({
 
       {/* Live AI Verified Waste Drop Events Feed */}
       {recentEvents && recentEvents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6">
+        <div className="bg-white rounded-xl border border-[#E1E8E1] shadow-2xs p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">Recent Waste Drop Events</h3>
-              <p className="text-xs text-gray-500">
-                Verified logs from Edric&apos;s AI Backend & IR Break-beam sensors
+              <h3 className="font-bold text-[#202A25] text-sm font-display">
+                Recent AI Verified Drop Events
+              </h3>
+              <p className="text-xs text-[#65736A]">
+                Ingested from Edric&apos;s AI Backend and physical IR break-beam verification
               </p>
             </div>
-            <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">
-              Live Feed
+            <span className="text-xs font-mono bg-[#E9F6F5] text-[#38A6A0] px-2 py-0.5 rounded font-semibold">
+              Active Ingestion
             </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider font-semibold border-b border-gray-100">
+              <thead className="bg-[#F7F8F4] text-[#65736A] uppercase tracking-wider font-semibold border-b border-[#E1E8E1] font-display">
                 <tr>
-                  <th className="py-2.5 px-3">Time</th>
+                  <th className="py-2.5 px-3">Timestamp</th>
                   <th className="py-2.5 px-3">Station</th>
                   <th className="py-2.5 px-3">AI Prediction</th>
                   <th className="py-2.5 px-3">Deposited Bin</th>
@@ -274,10 +282,10 @@ export default function AnalyticsView({
                   <th className="py-2.5 px-3">Result</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+              <tbody className="divide-y divide-[#E1E8E1] text-[#202A25]">
                 {recentEvents.slice(0, 8).map((evt) => (
-                  <tr key={evt.event_id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="py-2.5 px-3 text-gray-400 font-mono">
+                  <tr key={evt.event_id} className="hover:bg-[#E9F3ED]/30 transition-colors">
+                    <td className="py-2.5 px-3 text-[#65736A] font-mono text-[11px]">
                       {new Date(evt.timestamp).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -286,7 +294,7 @@ export default function AnalyticsView({
                     </td>
                     <td className="py-2.5 px-3 font-mono font-semibold">{evt.station_id}</td>
                     <td className="py-2.5 px-3 capitalize">
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 font-medium">
                         <span
                           className="w-2 h-2 rounded-full"
                           style={{
@@ -296,26 +304,28 @@ export default function AnalyticsView({
                                   ? 'General Waste'
                                   : evt.waste_category.charAt(0).toUpperCase() +
                                     evt.waste_category.slice(1)
-                              ] || '#94a3b8',
+                              ] || '#71849A',
                           }}
                         />
                         {evt.waste_category}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 capitalize text-gray-600">{evt.dropped_in_bin}</td>
-                    <td className="py-2.5 px-3 font-mono">
+                    <td className="py-2.5 px-3 capitalize text-[#65736A] font-medium">
+                      {evt.dropped_in_bin}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-semibold">
                       {(evt.confidence * 100).toFixed(0)}%
                     </td>
                     <td className="py-2.5 px-3">
                       {evt.is_correct_sort ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#E9F3ED] text-[#176B45] border border-[#CDE3D5]">
                           <CheckCircle2 className="w-3 h-3" />
-                          Correct
+                          Correct Sort
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF0EE] text-[#C84F49] border border-[#FADAD7]">
                           <XCircle className="w-3 h-3" />
-                          Wrong Bin
+                          Sorting Error
                         </span>
                       )}
                     </td>
