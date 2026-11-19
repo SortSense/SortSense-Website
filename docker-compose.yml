@@ -1,0 +1,36 @@
+services:
+  # Python FastAPI Cloud Backend
+  api:
+    build:
+      context: .
+      target: api
+    container_name: sortsense-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Next.js Campus Monitoring Frontend
+  web:
+    build:
+      context: .
+      target: web
+    container_name: sortsense-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      - BACKEND_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy

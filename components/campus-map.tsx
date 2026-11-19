@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { StationLiveStatus, StatusColor } from './types';
-import { MapPin, Navigation, Eye, Layers } from 'lucide-react';
+import { MapPin, Navigation, Layers } from 'lucide-react';
 
 interface CampusMapProps {
   stations: StationLiveStatus[];
