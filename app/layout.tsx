@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "SortSense - Campus Waste Monitoring",
-  description: "Smart Campus Waste Management and Monitoring Dashboard",
+  title: 'SortSense — Smart Campus Waste Management',
+  description: 'AI-powered waste sorting, IoT fill telemetry, and university environmental operations console.',
 };
 
 export default function RootLayout({
@@ -12,8 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full">
+      <body className="min-h-full flex flex-col bg-[var(--canvas)] text-[var(--ink)] font-sans antialiased">
+        {children}
+      </body>
     </html>
   );
 }

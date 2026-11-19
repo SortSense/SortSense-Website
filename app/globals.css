@@ -1,26 +1,103 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap");
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Forest & Sage Palette */
+  --forest: #176b45;
+  --forest-dark: #0f4c35;
+  --green: #48a868;
+  --teal: #38a6a0;
+  --lime: #d8ed8f;
+  --canvas: #f7f8f4;
+  --surface: #ffffff;
+  --surface-subtle: #e9f3ed;
+  --ink: #202a25;
+  --muted: #65736a;
+  --line: #e1e8e1;
+  --amber: #c48419;
+  --amber-soft: #fff6e4;
+  --red: #c84f49;
+  --red-soft: #fff0ee;
+  --gray-soft: #eff2ef;
+
+  /* Standard Waste Category Accents */
+  --cat-plastic: #38a6a0;
+  --cat-paper: #d49a3a;
+  --cat-metal: #71849a;
+  --cat-general: #776f68;
+
+  /* Defaults */
+  --background: var(--canvas);
+  --foreground: var(--ink);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --color-forest: var(--forest);
+  --color-forest-dark: var(--forest-dark);
+  --color-green: var(--green);
+  --color-teal: var(--teal);
+  --color-lime: var(--lime);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+  --color-gray-soft: var(--gray-soft);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Floating pill navbar styles ported from sort-sense-1.0 */
+.site-header-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+  transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.site-header {
+  pointer-events: auto;
+  width: 100%;
+  height: 80px;
+  padding-inline: max(4%, calc((100vw - 1200px) / 2));
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  background: rgba(247, 248, 244, 0.95);
+  border-bottom: 1px solid rgba(225, 232, 225, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.site-header.is-scrolled {
+  margin-top: 12px;
+  height: 60px;
+  max-width: min(1040px, calc(100% - 32px));
+  border-radius: 9999px;
+  padding-inline: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(225, 232, 225, 0.95);
+  box-shadow: 0 12px 34px rgba(15, 76, 53, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03);
+  gap: 32px;
 }
