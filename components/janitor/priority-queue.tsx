@@ -9,7 +9,6 @@ import { FillGauge } from '@/components/ui/fill-gauge';
 import {
   AlertOctagon,
   Trash2,
-  CheckCircle2,
   Clock,
   ShieldAlert,
   Info,
@@ -19,7 +18,7 @@ import {
 
 interface PriorityQueueProps {
   stations: StationLiveStatus[];
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }
 
 interface UrgentItem {
@@ -30,11 +29,9 @@ interface UrgentItem {
   updatedAt: string;
 }
 
-export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
+export function PriorityQueue({ stations }: PriorityQueueProps) {
   const [selectedEmptyItem, setSelectedEmptyItem] = useState<UrgentItem | null>(null);
   const [emptyNotes, setEmptyNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Derive individual compartment items with critical fill >= 85%
   const urgentItems: UrgentItem[] = [];
@@ -57,49 +54,6 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
 
   // Sort by highest fill percentage descending
   urgentItems.sort((a, b) => b.fillPct - a.fillPct);
-
-  // Handle emptying request via backend
-  const handleExecuteEmpty = async () => {
-    if (!selectedEmptyItem) return;
-    setIsSubmitting(true);
-    setFeedback(null);
-
-    try {
-      const res = await fetch('/api/bins/empty', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          station_id: selectedEmptyItem.station_id,
-          compartment: selectedEmptyItem.category,
-        }),
-      });
-
-      if (res.ok) {
-        setFeedback({
-          type: 'success',
-          message: `Successfully emptied ${selectedEmptyItem.category.toUpperCase()} at ${selectedEmptyItem.station_name}.`,
-        });
-        setSelectedEmptyItem(null);
-        setEmptyNotes('');
-        onRefresh();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        setFeedback({
-          type: 'error',
-          message: errData.detail || 'Backend rejected emptying operation.',
-        });
-      }
-    } catch {
-      setFeedback({
-        type: 'error',
-        message: 'Network error communicating with the Cloud API.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -127,23 +81,6 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
           </div>
         </div>
       </div>
-
-      {feedback && (
-        <div
-          className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-            feedback.type === 'success'
-              ? 'bg-[#E9F3ED] text-[#176B45] border border-[#CDE3D5]'
-              : 'bg-[#FFF0EE] text-[#C84F49] border border-[#FADAD7]'
-          }`}
-        >
-          {feedback.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-          ) : (
-            <AlertOctagon className="w-4 h-4 shrink-0" />
-          )}
-          <span>{feedback.message}</span>
-        </div>
-      )}
 
       {/* Critical Queue List */}
       {urgentItems.length === 0 ? (
@@ -270,14 +207,15 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
               </div>
             </div>
 
-            {/* Security Notice */}
-            <div className="p-3 rounded-lg bg-[#E9F3ED] border border-[#CDE3D5] text-[11px] text-[#176B45] space-y-1">
-              <div className="flex items-center gap-1.5 font-bold">
-                <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                <span>Backend Transaction Security</span>
+            {/* Status Notice: Backend RPC Integration In Progress */}
+            <div className="p-3.5 rounded-xl bg-[#FFF6E4] border border-[#FDE8BF] text-xs space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-[#C48419]">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-[#C48419]" />
+                <span>Backend RPC Integration In Progress</span>
               </div>
-              <p className="leading-relaxed">
-                This reset updates <code>bin_status</code> server-side and logs the maintenance event.
+              <p className="leading-relaxed text-[11px] text-[#874B00]">
+                Emptying operations require an authenticated PostgreSQL RPC transaction to atomically update{' '}
+                <code>bin_status</code> and record <code>bin_emptying_events</code>. Database mutation controls are temporarily locked in the UI.
               </p>
             </div>
 
@@ -291,7 +229,8 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
                 onChange={(e) => setEmptyNotes(e.target.value)}
                 placeholder="e.g., Replaced liner, cleaned ToF sensor lens"
                 rows={2}
-                className="w-full px-3 py-2 text-xs border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#176B45]/20 focus:border-[#176B45]"
+                disabled={true}
+                className="w-full px-3 py-2 text-xs border border-[#E1E8E1] rounded-lg bg-[#F7F8F4] text-[#65736A] cursor-not-allowed"
               />
             </div>
 
@@ -301,17 +240,17 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
                 variant="secondary"
                 size="md"
                 onClick={() => setSelectedEmptyItem(null)}
-                disabled={isSubmitting}
               >
-                Cancel
+                Close
               </Button>
               <Button
                 variant="danger"
                 size="md"
-                onClick={handleExecuteEmpty}
-                disabled={isSubmitting}
+                disabled={true}
+                title="Backend RPC Integration In Progress"
+                className="opacity-50 cursor-not-allowed"
               >
-                {isSubmitting ? 'Recording...' : 'Confirm & Empty Bin'}
+                Confirm &amp; Empty Bin (Locked)
               </Button>
             </div>
           </div>

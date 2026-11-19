@@ -14,6 +14,7 @@ import {
 
 interface AppHeaderProps {
   role: UserRole;
+  authenticatedRole?: UserRole | null;
   userName: string;
   isPolling: boolean;
   lastUpdated: Date;
@@ -25,6 +26,7 @@ interface AppHeaderProps {
 
 export function AppHeader({
   role,
+  authenticatedRole,
   userName,
   isPolling,
   lastUpdated,
@@ -76,8 +78,8 @@ export function AppHeader({
           <RefreshCw className={`w-3.5 h-3.5 ${isPolling ? 'animate-spin text-[#176B45]' : ''}`} />
         </button>
 
-        {/* Role Preview Switcher (Allows testing Admin and Janitor views) */}
-        {onToggleRolePreview && (
+        {/* Role Preview Switcher (Only visible to authenticated ADMIN accounts for testing Janitor dispatch view) */}
+        {authenticatedRole === 'ADMIN' && onToggleRolePreview && (
           <div className="hidden md:flex items-center bg-[#EFF2EF] p-0.5 rounded-lg text-[11px] font-semibold">
             <button
               onClick={() => onToggleRolePreview('ADMIN')}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -25,15 +25,25 @@ import {
   Info,
   AlertCircle,
   Database,
+  Loader2,
+  ShieldAlert,
+  LogOut,
 } from 'lucide-react';
+
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'inactive' | 'invalid_role';
 
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Role and Profile state (strictly uppercase 'ADMIN' | 'JANITOR')
+  // Authentication & Profile authorization state
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
+  const [authenticatedRole, setAuthenticatedRole] = useState<UserRole | null>(null);
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [userName, setUserName] = useState<string>('Staff User');
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // View & UI states
   const [currentView, setCurrentView] = useState<string>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -43,52 +53,88 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [recentEvents, setRecentEvents] = useState<WasteEvent[]>([]);
 
-  // Polling state
+  // Polling state & In-flight guard
   const [isPolling, setIsPolling] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const isFetchingRef = useRef<boolean>(false);
 
-  // Load authenticated staff profile from Supabase
+  // Load authenticated staff profile from Supabase with strict authorization validation
   useEffect(() => {
     async function loadProfile() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('user_id, full_name, role, is_active')
-            .eq('user_id', user.id)
-            .single();
-
-          if (profile && profile.is_active) {
-            const dbRole = profile.role?.toUpperCase();
-            if (dbRole === 'JANITOR' || dbRole === 'ADMIN') {
-              setRole(dbRole as UserRole);
-              if (dbRole === 'JANITOR') {
-                setCurrentView('priority');
-              }
-            }
-            if (profile.full_name) {
-              setUserName(profile.full_name);
-            }
-          }
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          setAuthStatus('unauthenticated');
+          router.push('/login');
+          return;
         }
+
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, role, is_active')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profileError || !profile) {
+          setAuthStatus('unauthenticated');
+          setAuthError('Staff profile not found in database. Contact facility administration.');
+          return;
+        }
+
+        if (!profile.is_active) {
+          setAuthStatus('inactive');
+          setAuthError('Your staff account is currently inactive. Contact your supervisor.');
+          return;
+        }
+
+        const dbRole = profile.role?.toUpperCase();
+        if (dbRole !== 'ADMIN' && dbRole !== 'JANITOR') {
+          setAuthStatus('invalid_role');
+          setAuthError(`Invalid role "${profile.role}" configured. Must be ADMIN or JANITOR.`);
+          return;
+        }
+
+        const validRole = dbRole as UserRole;
+        setAuthenticatedRole(validRole);
+        setRole(validRole);
+        if (validRole === 'JANITOR') {
+          setCurrentView('priority');
+        } else {
+          setCurrentView('overview');
+        }
+        if (profile.full_name) {
+          setUserName(profile.full_name);
+        }
+        setAuthStatus('authenticated');
       } catch (err) {
         console.warn('Profile fetch note:', err);
+        setAuthStatus('unauthenticated');
+        setAuthError('Failed to verify authentication credentials.');
       }
     }
     loadProfile();
-  }, [supabase]);
+  }, [supabase, router]);
 
-  // REST polling for live station status, analytics, and drop events
+  // REST polling using Promise.allSettled with in-flight guard and independent resource handling
   const fetchDashboardData = useCallback(async (isManual = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     if (isManual) setIsPolling(true);
 
     try {
+      const [statusResult, analyticsResult, eventsResult] = await Promise.allSettled([
+        fetch('/api/dashboard/live-status'),
+        fetch('/api/dashboard/analytics'),
+        fetch('/api/dashboard/recent-events?limit=15'),
+      ]);
+
+      let hasSuccess = false;
+      const failedFeeds: string[] = [];
+
       // 1. Live Stations
-      const statusRes = await fetch('/api/dashboard/live-status');
-      if (statusRes.ok) {
-        const data = await statusRes.json();
+      if (statusResult.status === 'fulfilled' && statusResult.value.ok) {
+        const data = await statusResult.value.json();
         const list: StationLiveStatus[] = data.stations || [];
         setStations(list);
 
@@ -99,54 +145,82 @@ export default function DashboardPage() {
           }
           return null;
         });
+        hasSuccess = true;
+      } else {
+        failedFeeds.push('station telemetry');
       }
 
       // 2. Daily Analytics
-      const analyticsRes = await fetch('/api/dashboard/analytics');
-      if (analyticsRes.ok) {
-        const data = await analyticsRes.json();
+      if (analyticsResult.status === 'fulfilled' && analyticsResult.value.ok) {
+        const data = await analyticsResult.value.json();
         setAnalytics(data);
+        hasSuccess = true;
+      } else {
+        failedFeeds.push('recycling analytics');
       }
 
       // 3. Recent verified drop events
-      const eventsRes = await fetch('/api/dashboard/recent-events?limit=15');
-      if (eventsRes.ok) {
-        const data = await eventsRes.json();
+      if (eventsResult.status === 'fulfilled' && eventsResult.value.ok) {
+        const data = await eventsResult.value.json();
         setRecentEvents(data.events || []);
+        hasSuccess = true;
+      } else {
+        failedFeeds.push('disposal activity logs');
       }
 
-      setLastUpdated(new Date());
-      setErrorMsg(null);
+      if (hasSuccess) {
+        setLastUpdated(new Date());
+        if (failedFeeds.length === 0) {
+          setErrorMsg(null);
+        } else {
+          setErrorMsg(`Partial update: Could not refresh ${failedFeeds.join(', ')}.`);
+        }
+      } else {
+        setErrorMsg('Failed to update live dashboard feeds.');
+      }
     } catch {
-      setErrorMsg('Failed to update live dashboard feeds.');
+      setErrorMsg('Network error communicating with the Cloud API.');
     } finally {
+      isFetchingRef.current = false;
       if (isManual) setIsPolling(false);
     }
   }, []);
 
-  // Periodic REST polling every 5 seconds (Vercel constraint: zero WebSockets)
+  // Periodic REST polling every 5 seconds (paused when tab hidden, guarded by in-flight ref)
   useEffect(() => {
+    if (authStatus !== 'authenticated') return;
+
     let isSubscribed = true;
 
     const poll = async () => {
       if (!isSubscribed) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
       await fetchDashboardData();
     };
 
-    const initialTimer = setTimeout(() => {
-      poll();
-    }, 0);
+    // Initial poll
+    poll();
 
+    // 5-second interval
     const interval = setInterval(() => {
       poll();
     }, 5000);
 
+    // Refresh immediately when user returns to this browser tab
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden && isSubscribed) {
+        poll();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       isSubscribed = false;
-      clearTimeout(initialTimer);
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchDashboardData]);
+  }, [authStatus, fetchDashboardData]);
 
   // Handle Sign Out
   const handleSignOut = async () => {
@@ -155,8 +229,9 @@ export default function DashboardPage() {
     router.refresh();
   };
 
-  // Switch role preview
+  // Switch role preview (strictly restricted to authenticated ADMIN users)
   const handleRoleToggle = (newRole: UserRole) => {
+    if (authenticatedRole !== 'ADMIN') return;
     setRole(newRole);
     if (newRole === 'JANITOR') {
       setCurrentView('priority');
@@ -165,6 +240,60 @@ export default function DashboardPage() {
     }
   };
 
+  // Loading state during profile verification
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#F7F8F4] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-[#176B45] text-white flex items-center justify-center font-bold text-xl shadow-md mb-4">
+          S
+        </div>
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#202A25]">
+          <Loader2 className="w-4 h-4 animate-spin text-[#176B45]" />
+          <span>Verifying staff session &amp; role permissions...</span>
+        </div>
+        <p className="text-xs text-[#65736A] mt-2">Connecting to SortSense operations console</p>
+      </div>
+    );
+  }
+
+  // Account inactive or invalid role error screen
+  if (authStatus === 'inactive' || authStatus === 'invalid_role') {
+    return (
+      <div className="min-h-screen bg-[#F7F8F4] flex flex-col items-center justify-center p-6">
+        <div className="bg-white rounded-2xl border border-[#FADAD7] p-8 max-w-md w-full text-center space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-[#FFF0EE] text-[#C84F49] flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-[#202A25] font-display">Access Denied</h2>
+          <p className="text-xs text-[#65736A] leading-relaxed">
+            {authError || 'Your account does not have permission to access the operations console.'}
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={handleSignOut}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#EFF2EF] text-[#202A25] hover:bg-[#E1E8E1] transition-colors flex items-center gap-2 mx-auto"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out &amp; Return to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Strictly enforce that Janitors can never see admin views even if requested
+  const effectiveView =
+    role === 'JANITOR' &&
+    (currentView === 'overview' ||
+      currentView === 'sensors' ||
+      currentView === 'analytics' ||
+      currentView === 'disposal-history' ||
+      currentView === 'locations' ||
+      currentView === 'staff')
+      ? 'priority'
+      : currentView;
+
   const criticalCount = stations.filter((s) => s.status_color === 'red').length;
 
   return (
@@ -172,7 +301,7 @@ export default function DashboardPage() {
       {/* Sidebar Navigation */}
       <AppSidebar
         role={role}
-        currentView={currentView}
+        currentView={effectiveView}
         onSelectView={setCurrentView}
         criticalCount={criticalCount}
         isOpenMobile={isMobileMenuOpen}
@@ -184,13 +313,14 @@ export default function DashboardPage() {
         {/* Header */}
         <AppHeader
           role={role}
+          authenticatedRole={authenticatedRole}
           userName={userName}
           isPolling={isPolling}
           lastUpdated={lastUpdated}
           onRefresh={() => fetchDashboardData(true)}
           onSignOut={handleSignOut}
           onToggleMobileMenu={() => setIsMobileMenuOpen((v) => !v)}
-          onToggleRolePreview={handleRoleToggle}
+          onToggleRolePreview={authenticatedRole === 'ADMIN' ? handleRoleToggle : undefined}
         />
 
         {/* Operational Workspace */}
@@ -205,7 +335,7 @@ export default function DashboardPage() {
           {/* ==================================================== */}
           {/* VIEW: Janitor Priority Bins (Default for JANITOR) */}
           {/* ==================================================== */}
-          {currentView === 'priority' && (
+          {effectiveView === 'priority' && (
             <PriorityQueue
               stations={stations}
               onRefresh={() => fetchDashboardData(true)}
@@ -215,7 +345,7 @@ export default function DashboardPage() {
           {/* ==================================================== */}
           {/* VIEW: System Overview (Default for ADMIN) */}
           {/* ==================================================== */}
-          {currentView === 'overview' && (
+          {effectiveView === 'overview' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Station Fleet Grid (7 cols) */}
@@ -244,7 +374,7 @@ export default function DashboardPage() {
           {/* ==================================================== */}
           {/* VIEW: Station Fleet & Bins */}
           {/* ==================================================== */}
-          {currentView === 'stations' && (
+          {effectiveView === 'stations' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-7">
@@ -267,7 +397,7 @@ export default function DashboardPage() {
           {/* ==================================================== */}
           {/* VIEW: Recycling Analytics */}
           {/* ==================================================== */}
-          {currentView === 'analytics' && (
+          {effectiveView === 'analytics' && (
             <AnalyticsView
               analytics={analytics}
               recentEvents={recentEvents}
@@ -277,21 +407,21 @@ export default function DashboardPage() {
           {/* ==================================================== */}
           {/* VIEW: AI Verified Disposal History */}
           {/* ==================================================== */}
-          {currentView === 'disposal-history' && (
+          {effectiveView === 'disposal-history' && (
             <DisposalHistoryView events={recentEvents} />
           )}
 
           {/* ==================================================== */}
           {/* VIEW: Sensor Diagnostics */}
           {/* ==================================================== */}
-          {currentView === 'sensors' && (
+          {effectiveView === 'sensors' && (
             <HardwareDiagnostics stations={stations} />
           )}
 
           {/* ==================================================== */}
           {/* VIEW: Campus Locations (Database Entity) */}
           {/* ==================================================== */}
-          {currentView === 'locations' && (
+          {effectiveView === 'locations' && (
             <OperationsCard
               title={
                 <div className="flex items-center gap-2">
@@ -343,7 +473,7 @@ export default function DashboardPage() {
           {/* ==================================================== */}
           {/* PENDING BACKEND VIEWS (Honest Architecture) */}
           {/* ==================================================== */}
-          {currentView === 'staff' && (
+          {effectiveView === 'staff' && (
             <OperationsCard
               title={
                 <div className="flex items-center gap-2">
@@ -367,7 +497,7 @@ export default function DashboardPage() {
             </OperationsCard>
           )}
 
-          {currentView === 'my-history' && (
+          {effectiveView === 'my-history' && (
             <OperationsCard
               title={
                 <div className="flex items-center gap-2">
@@ -391,7 +521,7 @@ export default function DashboardPage() {
             </OperationsCard>
           )}
 
-          {currentView === 'report-fault' && (
+          {effectiveView === 'report-fault' && (
             <OperationsCard
               title={
                 <div className="flex items-center gap-2">
