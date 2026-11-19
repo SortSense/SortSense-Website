@@ -1,0 +1,12 @@
+.git
+.github
+.next
+node_modules
+__pycache__
+*.pyc
+.venv
+venv
+.env*
+!package.json
+!package-lock.json
+!requirements.txt
