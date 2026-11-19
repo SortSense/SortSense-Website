@@ -1,144 +1,241 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/ui/brand-logo';
 import {
-  Recycle,
-  MapPin,
-  BarChart3,
-  Cpu,
+  Radio,
   ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 
-export default function Home() {
-  return (
-    <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans">
-      {/* Navbar */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-sm">
-              <Recycle className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-xl font-black text-gray-900 tracking-tight block">SortSense</span>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-semibold">
-                Smart Campus Waste
-              </span>
-            </div>
-          </div>
+export default function HomePage() {
+  const [isScrolled, setIsScrolled] = useState(false);
 
-          <div className="flex items-center gap-3">
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 30);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#F7F8F4] text-[#202A25] flex flex-col font-sans">
+      {/* Floating Pill Header Shell */}
+      <div className={`site-header-wrapper ${isScrolled ? 'is-scrolled' : ''}`}>
+        <header className={`site-header ${isScrolled ? 'is-scrolled' : ''}`}>
+          <BrandLogo />
+
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-[#65736A]">
+            <a href="#architecture" className="hover:text-[#176B45] transition-colors">
+              IoT Architecture
+            </a>
+            <a href="#streams" className="hover:text-[#176B45] transition-colors">
+              Waste Streams
+            </a>
+            <a href="#roles" className="hover:text-[#176B45] transition-colors">
+              Staff Workflows
+            </a>
+          </nav>
+
+          <div className="ml-auto flex items-center gap-3">
             <Link
               href="/login"
-              className="px-4 py-2 text-xs font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-3.5 py-1.5 text-xs font-semibold text-[#65736A] hover:text-[#176B45] hover:bg-[#E9F3ED] rounded-lg transition-colors"
             >
-              Staff Login
+              Staff Sign In
             </Link>
+
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#176B45] hover:bg-[#0F4C35] rounded-xl shadow-xs transition-all active:translate-y-[1px]"
             >
-              Open Dashboard
+              <span>Operations Console</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full flex-1 flex flex-col justify-center">
-        <div className="text-center max-w-3xl mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            SortSense Cloud Architecture Active
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl font-black text-gray-900 tracking-tight leading-tight">
-            Intelligent Waste Sorting &amp; <span className="text-emerald-700">Campus Monitoring</span>
-          </h1>
-
-          <p className="text-base sm:text-lg text-gray-600 leading-relaxed">
-            Real-time Time-of-Flight fill monitoring, AI classification verification, and centralized campus analytics — powering sustainable university operations.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md transition-all hover:shadow-lg"
-            >
-              <LayoutDashboardIcon className="w-4 h-4" />
-              Launch Monitoring Dashboard
-            </Link>
-
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 font-bold text-sm shadow-xs transition-colors"
-            >
-              Staff Portal
-            </Link>
-          </div>
+      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full text-center space-y-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9F3ED] text-[#176B45] border border-[#CDE3D5] text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-[#48A868] animate-pulse" />
+          <span>University Environmental Operations Console</span>
         </div>
 
-        {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-5xl mx-auto w-full">
-          {/* Card 1 */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-              <MapPin className="w-6 h-6" />
+        <h1 className="text-4xl sm:text-5xl font-black text-[#202A25] tracking-tight font-display leading-tight max-w-3xl mx-auto">
+          Intelligent Waste Sorting &amp;{' '}
+          <span className="text-[#176B45]">Campus Telemetry</span>
+        </h1>
+
+        <p className="text-sm sm:text-base text-[#65736A] max-w-2xl mx-auto leading-relaxed">
+          SortSense connects Fabio&apos;s ESP32-S3 ToF sensors and Edric&apos;s AI inference backend to a unified
+          cloud operations platform — empowering facility managers and janitors with live fill tracking.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#176B45] hover:bg-[#0F4C35] text-white text-xs font-bold shadow-xs transition-all active:translate-y-[1px]"
+          >
+            <Radio className="w-4 h-4" />
+            <span>Launch Live Console</span>
+          </Link>
+
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-[#E9F3ED] text-[#202A25] border border-[#E1E8E1] text-xs font-bold transition-all active:translate-y-[1px]"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#176B45]" />
+            <span>Staff Portal Access</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* 4 Standardized Waste Streams */}
+      <section id="streams" className="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-6">
+        <div className="text-center space-y-1">
+          <span className="text-[11px] font-bold text-[#65736A] uppercase tracking-wider font-display">
+            Standardized Categories
+          </span>
+          <h2 className="text-2xl font-bold text-[#202A25] font-display">
+            Four Segregated Campus Streams
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-5 rounded-xl bg-white border border-[#E1E8E1] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#38A6A0] uppercase tracking-wider font-display">
+                Plastic
+              </span>
+              <span className="w-3 h-3 rounded-full bg-[#38A6A0]" />
             </div>
-            <h3 className="text-base font-bold text-gray-900">Campus Map &amp; Fill Status</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Real-time Green/Yellow/Red station status tracking based on ToF distance sensor measurements with automated janitor collection alerts.
+            <h3 className="font-bold text-sm text-[#202A25]">Rigid Containers &amp; Bottles</h3>
+            <p className="text-xs text-[#65736A] leading-relaxed">
+              Clean beverage bottles, containers, and tubs. Monitored via ToF distance sensors.
             </p>
           </div>
 
-          {/* Card 2 */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <Cpu className="w-6 h-6" />
+          <div className="p-5 rounded-xl bg-white border border-[#E1E8E1] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#D49A3A] uppercase tracking-wider font-display">
+                Paper
+              </span>
+              <span className="w-3 h-3 rounded-full bg-[#D49A3A]" />
             </div>
-            <h3 className="text-base font-bold text-gray-900">ESP32 &amp; Edge AI Ingestion</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Standardized HTTP REST telemetry ingestion from Fabio&apos;s ESP32-S3 controllers and Edric&apos;s AI inference backend to Supabase PostgreSQL.
+            <h3 className="font-bold text-sm text-[#202A25]">Dry Paper &amp; Cardboard</h3>
+            <p className="text-xs text-[#65736A] leading-relaxed">
+              Office documents, study sheets, and packaging. Kept clean and dry.
             </p>
           </div>
 
-          {/* Card 3 */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-              <BarChart3 className="w-6 h-6" />
+          <div className="p-5 rounded-xl bg-white border border-[#E1E8E1] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#71849A] uppercase tracking-wider font-display">
+                Metal
+              </span>
+              <span className="w-3 h-3 rounded-full bg-[#71849A]" />
             </div>
-            <h3 className="text-base font-bold text-gray-900">Interactive Recycling Analytics</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Daily sorting accuracy metrics, diversion ratios, and 4-compartment volume breakdown powered by Recharts data visualization.
+            <h3 className="font-bold text-sm text-[#202A25]">Drink Cans &amp; Food Tins</h3>
+            <p className="text-xs text-[#65736A] leading-relaxed">
+              Aluminum beverage cans and metal packaging. Empty of liquids before disposal.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-xl bg-white border border-[#E1E8E1] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#776F68] uppercase tracking-wider font-display">
+                General Waste
+              </span>
+              <span className="w-3 h-3 rounded-full bg-[#776F68]" />
+            </div>
+            <h3 className="font-bold text-sm text-[#202A25]">Non-Recyclable Materials</h3>
+            <p className="text-xs text-[#65736A] leading-relaxed">
+              Food wrappers, soiled packaging, and composites destined for landfill diversion.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-4">
-          <div className="flex items-center gap-2">
-            <Recycle className="w-4 h-4 text-emerald-700" />
-            <span>SortSense — Smart Campus Waste Management System</span>
+      {/* Role Workflows Overview */}
+      <section id="roles" className="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-6 rounded-2xl bg-white border border-[#E1E8E1] space-y-3">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#E9F3ED] text-[#176B45] border border-[#CDE3D5]">
+              ADMIN WORKFLOW
+            </span>
+            <h3 className="text-base font-bold text-[#202A25] font-display">
+              Facility &amp; System Governance
+            </h3>
+            <ul className="text-xs text-[#65736A] space-y-2">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#176B45]" />
+                Campus-wide station fleet monitoring &amp; GPS calibration
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#176B45]" />
+                Daily recycling diversion analytics &amp; sorting accuracy tracking
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#176B45]" />
+                AI verified waste disposal audit stream &amp; break-beam logs
+              </li>
+            </ul>
           </div>
 
+          <div className="p-6 rounded-2xl bg-white border border-[#E1E8E1] space-y-3">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#FFF6E4] text-[#C48419] border border-[#FDE8BF]">
+              JANITOR WORKFLOW
+            </span>
+            <h3 className="text-base font-bold text-[#202A25] font-display">
+              Operational Task Dispatch
+            </h3>
+            <ul className="text-xs text-[#65736A] space-y-2">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#C48419]" />
+                Priority collection queue sorted by fill percentage (≥85% first)
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#C48419]" />
+                Separate sensor error condition alerts without false fill assumptions
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#C48419]" />
+                Authorized bin emptying logs committed to bin_emptying_events
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="mt-auto border-t border-[#E1E8E1] bg-white py-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#65736A] gap-4">
+          <BrandLogo />
           <div className="flex items-center gap-4">
-            <span className="font-mono text-gray-400">Owner: Kiyo</span>
+            <Link href="/login" className="hover:text-[#176B45] transition-colors">
+              Staff Portal
+            </Link>
             <span>•</span>
-            <Link href="/login" className="hover:text-emerald-700">Staff Access</Link>
+            <Link href="/dashboard" className="hover:text-[#176B45] transition-colors">
+              Console
+            </Link>
             <span>•</span>
-            <Link href="/dashboard" className="hover:text-emerald-700">Dashboard</Link>
+            <span className="font-mono text-[#65736A]">SortSense © {new Date().getFullYear()}</span>
           </div>
         </div>
       </footer>
     </div>
-  );
-}
-
-function LayoutDashboardIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-    </svg>
   );
 }
