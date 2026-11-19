@@ -45,7 +45,6 @@ export default function StationDetail({
   onRefresh,
   onStationUpdated,
 }: StationDetailProps) {
-  const [isResetting, setIsResetting] = useState<string | null>(null);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
 
@@ -67,37 +66,10 @@ export default function StationDetail({
     );
   }
 
-  const handleEmptyBin = async (compartment: 'all' | WasteCategory) => {
-    setIsResetting(compartment);
-    setResetMessage(null);
-
-    try {
-      const res = await fetch('/api/bins/empty', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          station_id: station.station_id,
-          compartment: compartment,
-        }),
-      });
-
-      if (res.ok) {
-        setResetMessage(
-          compartment === 'all'
-            ? 'All compartments reset to 0%'
-            : `${CATEGORY_CONFIG[compartment].label} compartment emptied`
-        );
-        if (onRefresh) onRefresh();
-        if (onStationUpdated) onStationUpdated();
-      } else {
-        setResetMessage('Failed to reset compartment');
-      }
-    } catch {
-      setResetMessage('Network error while resetting');
-    } finally {
-      setIsResetting(null);
-      setTimeout(() => setResetMessage(null), 4000);
-    }
+  // Emptying disabled pending authenticated atomic RPC backend
+  const handleEmptyBin = async () => {
+    setResetMessage('Backend RPC Integration In Progress: Emptying is temporarily disabled.');
+    setTimeout(() => setResetMessage(null), 4000);
   };
 
   const handleProvision = async (e: React.FormEvent) => {
@@ -249,10 +221,10 @@ export default function StationDetail({
                     </span>
 
                     <button
-                      onClick={() => handleEmptyBin(cat)}
-                      disabled={isResetting === cat}
-                      title={`Empty ${config.label} compartment`}
-                      className="text-xs text-gray-400 hover:text-red-600 p-1 rounded hover:bg-white transition-colors"
+                      onClick={() => handleEmptyBin()}
+                      disabled={true}
+                      title="Backend RPC Integration In Progress"
+                      className="text-xs text-gray-300 p-1 rounded cursor-not-allowed opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -291,12 +263,13 @@ export default function StationDetail({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => handleEmptyBin('all')}
-            disabled={isResetting === 'all'}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-700 hover:bg-emerald-800 transition-colors shadow-sm disabled:opacity-50"
+            onClick={() => handleEmptyBin()}
+            disabled={true}
+            title="Backend RPC Integration In Progress"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gray-400 cursor-not-allowed shadow-sm opacity-60"
           >
-            <RefreshCw className={`w-4 h-4 ${isResetting === 'all' ? 'animate-spin' : ''}`} />
-            {isResetting === 'all' ? 'Resetting...' : 'Empty All Compartments'}
+            <RefreshCw className="w-4 h-4" />
+            Empty All Compartments (Locked)
           </button>
         </div>
       </div>

@@ -10,9 +10,9 @@ import {
   MapPin,
   RefreshCw,
   QrCode,
-  CheckCircle2,
   Radio,
   Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface StationInspectorProps {
@@ -21,8 +21,6 @@ interface StationInspectorProps {
 }
 
 export function StationInspector({ station, onRefresh }: StationInspectorProps) {
-  const [isResetting, setIsResetting] = useState<string | null>(null);
-  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
 
   // Provisioning form state
@@ -44,38 +42,6 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
       </OperationsCard>
     );
   }
-
-  const handleEmpty = async (compartment: 'all' | WasteCategory) => {
-    setIsResetting(compartment);
-    setResetFeedback(null);
-
-    try {
-      const res = await fetch('/api/bins/empty', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          station_id: station.station_id,
-          compartment,
-        }),
-      });
-
-      if (res.ok) {
-        setResetFeedback(
-          compartment === 'all'
-            ? 'All compartments reset to 0%'
-            : `${compartment.toUpperCase()} compartment reset to 0%`
-        );
-        onRefresh();
-      } else {
-        setResetFeedback('Failed to execute reset.');
-      }
-    } catch {
-      setResetFeedback('Network error while resetting.');
-    } finally {
-      setIsResetting(null);
-      setTimeout(() => setResetFeedback(null), 4000);
-    }
-  };
 
   const handleProvision = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,13 +127,6 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
       }
     >
       <div className="space-y-5">
-        {resetFeedback && (
-          <div className="p-3 bg-[#E9F3ED] border border-[#CDE3D5] rounded-lg text-[#176B45] text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#176B45]" />
-            {resetFeedback}
-          </div>
-        )}
-
         {/* 4 Compartment Fill Gauges */}
         <div className="space-y-4">
           <div className="flex items-center justify-between text-xs font-bold text-[#65736A] uppercase tracking-wider font-display">
@@ -190,11 +149,12 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEmpty(cat)}
-                      disabled={isResetting === cat}
+                      disabled={true}
+                      title="Backend RPC Integration In Progress"
+                      className="opacity-50 cursor-not-allowed"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-[#C84F49]" />
-                      <span className="text-[11px] text-[#C84F49]">Empty</span>
+                      <Trash2 className="w-3.5 h-3.5 text-[#65736A]" />
+                      <span className="text-[11px] text-[#65736A]">Empty (Locked)</span>
                     </Button>
                   </div>
                 </div>
@@ -204,19 +164,27 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
         </div>
 
         {/* Station-Wide Empty Action */}
-        <div className="pt-3 border-t border-[#E1E8E1] flex items-center justify-between">
-          <span className="text-xs text-[#65736A]">Reset all 4 compartments at once:</span>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => handleEmpty('all')}
-            disabled={isResetting === 'all'}
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${isResetting === 'all' ? 'animate-spin' : ''}`}
-            />
-            <span>Empty All Compartments</span>
-          </Button>
+        <div className="pt-3 border-t border-[#E1E8E1] space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs text-[#65736A]">Reset all 4 compartments at once:</span>
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={true}
+              title="Backend RPC Integration In Progress"
+              className="opacity-50 cursor-not-allowed"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Empty All Compartments (Locked)</span>
+            </Button>
+          </div>
+          <div className="p-3 rounded-xl bg-[#FFF6E4] border border-[#FDE8BF] text-xs text-[#C48419] flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0 text-[#C48419]" />
+            <span className="text-[11px] leading-relaxed text-[#874B00]">
+              <strong>Backend RPC Integration In Progress:</strong> Reset operations require an authenticated
+              PostgreSQL RPC transaction and are currently disabled in the UI.
+            </span>
+          </div>
         </div>
       </div>
 
