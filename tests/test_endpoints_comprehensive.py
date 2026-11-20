@@ -20,6 +20,7 @@ client = TestClient(app)
 def reset_db_mode(monkeypatch):
     """Ensure every test starts in isolated fixture mode unless overridden."""
     monkeypatch.setattr(db, "use_fixtures", True)
+    monkeypatch.delenv("DEVICE_API_KEY", raising=False)
     monkeypatch.delenv("SORTSENSE_DEVICE_API_KEY", raising=False)
     monkeypatch.delenv("TELEMETRY_INGEST_KEY", raising=False)
     monkeypatch.delenv("STATION_CODE_MAP", raising=False)
