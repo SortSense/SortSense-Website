@@ -289,43 +289,149 @@ class DatabaseManager:
     def record_telemetry(self, payload: TelemetryPayload) -> Dict[str, Any]:
         """
         Ingest ToF sensor fill levels from ESP32-S3.
-        Updates station fill levels, sets is_online=True, updates timestamp.
+        In fixture mode, updates in-memory self.stations.
+        In live mode (use_fixtures=False), resolves active station & bins and persists
+        HARDWARE telemetry via `ingest_bin_fill_level` RPC (never fabricating 0% on NULL/SENSOR_ERROR).
         """
         now = get_current_iso_time()
-        station_id = payload.station_id
+        raw_station_code = payload.station_id.strip()
 
-        if station_id not in self.stations:
-            # Auto-register station if not yet provisioned
-            self.stations[station_id] = {
-                "station_id": station_id,
-                "name": f"Station {station_id}",
-                "latitude": 24.7956,
-                "longitude": 120.9923,
-                "is_online": True,
-                "fill_levels": payload.fill_levels.model_dump(),
+        if self.use_fixtures:
+            if raw_station_code not in self.stations:
+                self.stations[raw_station_code] = {
+                    "station_id": raw_station_code,
+                    "name": f"Station {raw_station_code}",
+                    "latitude": 24.7956,
+                    "longitude": 120.9923,
+                    "is_online": True,
+                    "fill_levels": payload.fill_levels.model_dump(),
+                    "updated_at": now,
+                }
+            else:
+                self.stations[raw_station_code]["fill_levels"] = payload.fill_levels.model_dump()
+                self.stations[raw_station_code]["is_online"] = True
+                self.stations[raw_station_code]["updated_at"] = now
+
+            return {
+                "status": "success",
+                "station_id": raw_station_code,
                 "updated_at": now,
+                "fill_levels": self.stations[raw_station_code]["fill_levels"],
             }
-        else:
-            self.stations[station_id]["fill_levels"] = payload.fill_levels.model_dump()
-            self.stations[station_id]["is_online"] = True
-            self.stations[station_id]["updated_at"] = now
 
-        # Attempt Supabase sync if connected
-        if self.client:
+        if not self.client:
+            raise DatabaseUnavailableError(
+                "Supabase client is not configured for hardware fill-level persistence."
+            )
+
+        station_map_raw = os.getenv("STATION_CODE_MAP", "").strip()
+        if station_map_raw:
             try:
-                # Update stations table last_seen / is_online
-                self.client.table("stations").update({
-                    "is_active": True,
-                }).eq("station_code", station_id).execute()
-            except Exception as e:
-                # Fallback to local store
+                station_map = json.loads(station_map_raw)
+                if isinstance(station_map, dict) and raw_station_code in station_map:
+                    raw_station_code = str(station_map[raw_station_code]).strip()
+            except Exception:
                 pass
+
+        try:
+            st_res = (
+                self.client.table("stations")
+                .select(
+                    "station_id, station_code, is_active, "
+                    "floors(floor_id, is_active, "
+                    "disposal_areas(area_id, is_active, "
+                    "bins(bin_id, category_id, is_active, waste_categories(category_name))))"
+                )
+                .eq("station_code", raw_station_code)
+                .execute()
+            )
+            cats_res = (
+                self.client.table("waste_categories")
+                .select("category_id, category_name, is_active")
+                .execute()
+            )
+        except Exception as exc:
+            raise DatabaseUnavailableError(
+                f"Failed to resolve station for fill-level telemetry: {exc}"
+            ) from exc
+
+        st_rows = st_res.data or []
+        if not st_rows:
+            raise RecordNotFoundError(f"Station '{raw_station_code}' not found.")
+        station_row = st_rows[0]
+        if not station_row.get("is_active", True):
+            raise ValidationError(f"Station '{raw_station_code}' is inactive.")
+
+        cat_by_id: Dict[str, str] = {}
+        for c in cats_res.data or []:
+            if not c.get("is_active", True):
+                continue
+            slug = _normalize_category(c.get("category_name"))
+            if slug and c.get("category_id"):
+                cat_by_id[str(c["category_id"])] = slug
+
+        bins_by_slug: Dict[str, List[str]] = {}
+        for fl in station_row.get("floors") or []:
+            if not fl.get("is_active", True):
+                continue
+            for ar in fl.get("disposal_areas") or []:
+                if not ar.get("is_active", True):
+                    continue
+                for b in ar.get("bins") or []:
+                    if not b.get("is_active", True):
+                        continue
+                    slug = cat_by_id.get(str(b.get("category_id") or ""))
+                    if slug and b.get("bin_id"):
+                        bins_by_slug.setdefault(slug, []).append(str(b["bin_id"]))
+
+        levels = payload.fill_levels.model_dump()
+        updated_bins: List[Dict[str, Any]] = []
+        for slug, bin_ids in bins_by_slug.items():
+            fill_val = levels.get(slug)
+            # If a configured active bin receives None, record SENSOR_ERROR (preserving prior fill/NULL) rather than 0%
+            op_status = "NORMAL" if fill_val is not None else "SENSOR_ERROR"
+            for bin_id in bin_ids:
+                try:
+                    rpc_res = self.client.rpc(
+                        "ingest_bin_fill_level",
+                        {
+                            "p_bin_id": bin_id,
+                            "p_fill_percentage": fill_val,
+                            "p_operational_status": op_status,
+                            "p_distance_mm": None,
+                            "p_measured_at": now,
+                        },
+                    ).execute()
+                    row = (
+                        rpc_res.data[0]
+                        if isinstance(rpc_res.data, list) and rpc_res.data
+                        else (rpc_res.data or {})
+                    )
+                    updated_bins.append({
+                        "bin_id": bin_id,
+                        "category": slug,
+                        "fill_percentage": None if op_status == "SENSOR_ERROR" else row.get("fill_percentage", fill_val),
+                        "operational_status": row.get("operational_status") or op_status,
+                        "reading_source": row.get("reading_source") or "HARDWARE",
+                    })
+                except Exception as exc:
+                    msg = str(exc)
+                    low = msg.lower()
+                    if "42501" in msg or "permission denied" in low:
+                        raise AuthorizationError(f"Permission denied recording telemetry: {exc}") from exc
+                    if "p0002" in low or "not found" in low:
+                        raise RecordNotFoundError(f"Active bin not found: {exc}") from exc
+                    raise DatabaseUnavailableError(
+                        f"Failed to persist fill-level telemetry for bin '{bin_id}': {exc}"
+                    ) from exc
 
         return {
             "status": "success",
-            "station_id": station_id,
+            "station_id": raw_station_code,
             "updated_at": now,
-            "fill_levels": self.stations[station_id]["fill_levels"],
+            "reading_source": "HARDWARE",
+            "fill_levels": levels,
+            "updated_bins": updated_bins,
         }
 
     def _check_and_record_drop_dedup(self, payload: WasteDropEventPayload) -> bool:
