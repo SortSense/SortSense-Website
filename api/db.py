@@ -609,10 +609,35 @@ class DatabaseManager:
         }
 
         try:
-            ins_res = self.client.table("drop_events").insert(insert_payload).execute()
+            if hasattr(self.client, "rpc"):
+                try:
+                    ins_res = self.client.rpc(
+                        "ingest_waste_drop_event",
+                        {
+                            "p_actual_bin_id": actual_bin_id,
+                            "p_classified_category_id": classified_category_id,
+                            "p_confidence": payload.confidence,
+                            "p_classified_at": now,
+                            "p_verified_at": now,
+                        },
+                    ).execute()
+                except Exception as rpc_exc:
+                    rpc_msg = str(rpc_exc).lower()
+                    # Fall back to direct table insert only if the RPC function is not deployed/mocked
+                    if "unknown rpc" in rpc_msg or "pgrst202" in rpc_msg or "could not find the function" in rpc_msg:
+                        ins_res = self.client.table("drop_events").insert(insert_payload).execute()
+                    else:
+                        raise
+            else:
+                ins_res = self.client.table("drop_events").insert(insert_payload).execute()
         except Exception as exc:
             msg = str(exc)
-            if "42501" in msg or "permission denied" in msg.lower():
+            low = msg.lower()
+            if "p0002" in low or "not found" in low:
+                raise RecordNotFoundError(f"Active bin not found for drop event: {exc}") from exc
+            if "22023" in msg:
+                raise ValidationError(f"Invalid drop event parameter: {exc}") from exc
+            if "42501" in msg or "permission denied" in low:
                 raise AuthorizationError(
                     f"Permission denied inserting into drop_events (RLS policy): {exc}"
                 ) from exc

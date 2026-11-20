@@ -919,6 +919,20 @@ class _FakeRpcCall:
         self._store = store
 
     def execute(self):
+        if self._fn_name == "ingest_waste_drop_event":
+            if "drop_events" in self._store.get("fail_on_insert", ()):
+                raise RuntimeError("Simulated insert failure on drop_events")
+            row = {
+                "event_id": f"evt-{len(self._store.setdefault('drop_events', [])) + 1}",
+                "actual_bin_id": self._params["p_actual_bin_id"],
+                "classified_category_id": self._params.get("p_classified_category_id"),
+                "trigger_sensor_id": None,
+                "classification_confidence": self._params.get("p_confidence", 0.0),
+                "classified_at": self._params.get("p_classified_at") or "2026-11-21T00:00:00+00:00",
+                "verified_at": self._params.get("p_verified_at") or "2026-11-21T00:00:00+00:00",
+            }
+            self._store["drop_events"].append(row)
+            return SimpleNamespace(data=[dict(row)])
         if self._fn_name == "ingest_bin_fill_level":
             bin_id = self._params["p_bin_id"]
             op_status = self._params.get("p_operational_status") or "NORMAL"
