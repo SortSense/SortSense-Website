@@ -4,16 +4,9 @@ import React from 'react';
 import {
   LayoutDashboard,
   Radio,
-  MapPin,
-  Cpu,
   BarChart3,
   FileCheck2,
-  Users,
   AlertOctagon,
-  History,
-  Wrench,
-  ShieldAlert,
-  HardHat,
 } from 'lucide-react';
 
 export type UserRole = 'ADMIN' | 'JANITOR';
@@ -23,8 +16,6 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   count?: number;
-  badge?: string;
-  isUrgent?: boolean;
 }
 
 interface NavGroup {
@@ -49,52 +40,40 @@ export function AppSidebar({
   isOpenMobile = false,
   onCloseMobile,
 }: AppSidebarProps) {
-  // Navigation for ADMIN role
   const adminNav: NavGroup[] = [
     {
-      group: 'Campus Operations',
+      group: 'Operations',
       items: [
-        { id: 'overview', label: 'System Overview', icon: LayoutDashboard },
-        { id: 'stations', label: 'Station Fleet & Bins', icon: Radio },
-        { id: 'locations', label: 'Campus Locations', icon: MapPin },
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'stations', label: 'Station Management', icon: Radio },
+        {
+          id: 'priority',
+          label: 'Priority Queue',
+          icon: AlertOctagon,
+          count: criticalCount > 0 ? criticalCount : undefined,
+        },
       ],
     },
     {
-      group: 'Hardware & IoT',
+      group: 'Intelligence',
       items: [
-        { id: 'sensors', label: 'Sensor Diagnostics', icon: Cpu, badge: 'Hardware' },
-      ],
-    },
-    {
-      group: 'Data & Governance',
-      items: [
-        { id: 'analytics', label: 'Recycling Analytics', icon: BarChart3 },
-        { id: 'disposal-history', label: 'AI Verified Drops', icon: FileCheck2 },
-        { id: 'staff', label: 'Staff Management', icon: Users, badge: 'Pending API' },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'disposal-history', label: 'Disposal History', icon: FileCheck2 },
       ],
     },
   ];
 
-  // Navigation for JANITOR role
   const janitorNav: NavGroup[] = [
     {
-      group: 'Operational Tasks',
+      group: 'Field Operations',
       items: [
+        { id: 'janitor-overview', label: 'Overview', icon: LayoutDashboard },
         {
           id: 'priority',
-          label: 'Priority Bins',
+          label: 'Priority Queue',
           icon: AlertOctagon,
           count: criticalCount > 0 ? criticalCount : undefined,
-          isUrgent: criticalCount > 0,
         },
-        { id: 'stations', label: 'Campus Stations', icon: Radio },
-      ],
-    },
-    {
-      group: 'Maintenance Records',
-      items: [
-        { id: 'my-history', label: 'My Emptying History', icon: History, badge: 'Pending API' },
-        { id: 'report-fault', label: 'Report Sensor Fault', icon: Wrench, badge: 'Pending API' },
       ],
     },
   ];
@@ -108,60 +87,45 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpenMobile && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
         />
       )}
 
-      {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white border-r border-[#E1E8E1] flex flex-col transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white border-r border-[#E1E8E1] flex flex-col transition-transform duration-200 lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Brand / Logo Area */}
-        <div className="h-16 px-5 border-b border-[#E1E8E1] flex items-center justify-between">
+        <div className="h-14 px-5 border-b border-[#E1E8E1] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#176B45] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+            <div className="w-7 h-7 rounded-md bg-[#176B45] text-white flex items-center justify-center font-bold text-xs font-display">
               S
             </div>
             <div>
-              <span className="font-bold text-base text-[#202A25] font-display block leading-none">
+              <span className="font-bold text-sm text-[#202A25] font-display block leading-none">
                 Sort<span className="text-[#176B45]">Sense</span>
               </span>
-              <span className="text-[10px] text-[#65736A] uppercase tracking-wider block font-semibold mt-0.5">
-                Ops Console
+              <span className="text-[10px] text-[#65736A] uppercase tracking-wider block font-medium mt-0.5">
+                Operations
               </span>
             </div>
           </div>
 
-          {/* Role Pill */}
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider ${
+            className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
               role === 'ADMIN'
-                ? 'bg-[#E9F3ED] text-[#176B45] border border-[#CDE3D5]'
-                : 'bg-[#FFF6E4] text-[#C48419] border border-[#FDE8BF]'
+                ? 'bg-[#E9F3ED] text-[#176B45] border-[#CDE3D5]'
+                : 'bg-[#FFF6E4] text-[#94600D] border-[#FDE8BF]'
             }`}
           >
-            {role === 'ADMIN' ? (
-              <>
-                <ShieldAlert className="w-3 h-3 shrink-0" />
-                ADMIN
-              </>
-            ) : (
-              <>
-                <HardHat className="w-3 h-3 shrink-0" />
-                JANITOR
-              </>
-            )}
+            {role}
           </span>
         </div>
 
-        {/* Navigation List */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Dashboard navigation">
           {navGroups.map((group) => (
             <div key={group.group} className="space-y-1">
               <span className="px-3 text-[10px] font-bold text-[#65736A] uppercase tracking-wider block mb-1.5 font-display">
@@ -176,10 +140,10 @@ export function AppSidebar({
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                       isActive
-                        ? 'bg-[#176B45] text-white shadow-xs font-semibold'
-                        : 'text-[#65736A] hover:bg-[#E9F3ED] hover:text-[#176B45]'
+                        ? 'bg-[#176B45] text-white font-semibold'
+                        : 'text-[#65736A] hover:bg-[#F2F7F3] hover:text-[#176B45]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -187,10 +151,9 @@ export function AppSidebar({
                       <span>{item.label}</span>
                     </div>
 
-                    {/* Badge or Count */}
                     {item.count !== undefined && (
                       <span
-                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                        className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
                           isActive
                             ? 'bg-white text-[#C84F49]'
                             : 'bg-[#FFF0EE] text-[#C84F49] border border-[#FADAD7]'
@@ -199,34 +162,17 @@ export function AppSidebar({
                         {item.count}
                       </span>
                     )}
-
-                    {item.badge && (
-                      <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-medium ${
-                          isActive
-                            ? 'bg-white/20 text-white'
-                            : 'bg-[#EFF2EF] text-[#65736A]'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
                   </button>
                 );
               })}
             </div>
           ))}
-        </div>
+        </nav>
 
-        {/* Footer Note */}
-        <div className="p-4 border-t border-[#E1E8E1] text-[11px] text-[#65736A] space-y-1">
+        <div className="p-3.5 border-t border-[#E1E8E1] bg-[#F7F8F4] text-[11px] text-[#65736A]">
           <div className="flex items-center justify-between font-mono">
-            <span>Supabase Auth</span>
-            <span className="text-[#176B45] font-semibold">Active</span>
-          </div>
-          <div className="flex items-center justify-between font-mono">
-            <span>FastAPI Server</span>
-            <span className="text-[#176B45] font-semibold">Online</span>
+            <span>Telemetry</span>
+            <span className="text-[#176B45] font-semibold">Live REST</span>
           </div>
         </div>
       </aside>

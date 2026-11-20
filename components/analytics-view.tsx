@@ -108,11 +108,13 @@ export default function AnalyticsView({
               Sorting Accuracy
             </span>
             <span className="text-3xl font-extrabold text-[#202A25] mt-1 block font-mono">
-              {sorting_accuracy_pct}%
+              {sorting_accuracy_pct !== null ? `${sorting_accuracy_pct}%` : 'Unavailable'}
             </span>
             <span
               className={`text-xs font-medium flex items-center gap-1 mt-1 ${
-                sorting_accuracy_pct >= 85
+                sorting_accuracy_pct === null
+                  ? 'text-[#65736A]'
+                  : sorting_accuracy_pct >= 85
                   ? 'text-[#176B45]'
                   : sorting_accuracy_pct >= 70
                   ? 'text-[#C48419]'
@@ -120,7 +122,11 @@ export default function AnalyticsView({
               }`}
             >
               <Award className="w-3.5 h-3.5" />
-              {sorting_accuracy_pct >= 85 ? 'High Accuracy Standard' : 'Requires Guidance'}
+              {sorting_accuracy_pct === null
+                ? 'Correctness metric not tracked'
+                : sorting_accuracy_pct >= 85
+                ? 'High Accuracy Standard'
+                : 'Requires Guidance'}
             </span>
           </div>
           <div className="w-11 h-11 rounded-xl bg-[#E9F6F5] text-[#38A6A0] flex items-center justify-center">

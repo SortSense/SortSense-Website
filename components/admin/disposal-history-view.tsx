@@ -92,15 +92,19 @@ export function DisposalHistoryView({ events, isLoading = false }: DisposalHisto
                     {(evt.confidence * 100).toFixed(0)}%
                   </td>
                   <td className="py-3 px-3">
-                    {evt.is_correct_sort ? (
+                    {evt.is_correct_sort === true ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#E9F3ED] text-[#176B45] border border-[#CDE3D5]">
                         <CheckCircle2 className="w-3 h-3" />
                         Correct Sort
                       </span>
-                    ) : (
+                    ) : evt.is_correct_sort === false ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF0EE] text-[#C84F49] border border-[#FADAD7]">
                         <XCircle className="w-3 h-3" />
                         Sorting Error
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EFF2EF] text-[#65736A] border border-[#E1E8E1]">
+                        Recorded
                       </span>
                     )}
                   </td>

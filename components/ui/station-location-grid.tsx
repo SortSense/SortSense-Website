@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { StationLiveStatus } from '@/components/types';
-import { StatusBadge, OperationalStatus } from './status-badge';
+import { StatusBadge, resolveStationOperationalStatus } from './status-badge';
 import { MapPin, Navigation, Signal } from 'lucide-react';
 
 interface StationLocationGridProps {
@@ -22,12 +22,6 @@ export function StationLocationGrid({
     if (filter === 'all') return true;
     return st.status_color === filter;
   });
-
-  const getStatusType = (color: 'green' | 'yellow' | 'red'): OperationalStatus => {
-    if (color === 'red') return 'critical';
-    if (color === 'yellow') return 'warning';
-    return 'normal';
-  };
 
   return (
     <div className="space-y-4">
@@ -97,16 +91,32 @@ export function StationLocationGrid({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredStations.map((station) => {
             const isSelected = selectedStationId === station.station_id;
-            const statusType = getStatusType(station.status_color);
+            const resolved = resolveStationOperationalStatus(station);
+
+            const formatBin = (cat: 'plastic' | 'paper' | 'metal' | 'general') => {
+              if (station.sensor_error_categories?.includes(cat)) return 'ERR';
+              const val = station.fill_levels[cat];
+              return val !== null && val !== undefined ? `${val}%` : 'N/A';
+            };
+
+            const connectivityLabel = station.has_sensor_error
+              ? 'Sensor Error'
+              : station.connectivity_status === 'UNKNOWN' || !station.updated_at
+              ? 'Status Unknown'
+              : station.is_online
+              ? 'Online'
+              : station.is_stale
+              ? 'Offline (Stale)'
+              : 'Offline';
 
             return (
               <div
                 key={station.station_id}
                 onClick={() => onSelectStation(station)}
-                className={`p-5 rounded-xl border cursor-pointer transition-all ${
+                className={`p-5 rounded-lg border cursor-pointer transition-colors ${
                   isSelected
-                    ? 'border-[#176B45] bg-[#E9F3ED]/30 ring-2 ring-[#176B45]/20 shadow-sm'
-                    : 'border-[#E1E8E1] bg-white hover:border-[#CDE3D5] hover:shadow-xs'
+                    ? 'border-[#176B45] bg-[#E9F3ED]/30 ring-1 ring-[#176B45]/25'
+                    : 'border-[#E1E8E1] bg-white hover:border-[#CDE3D5]'
                 }`}
               >
                 {/* Station Card Header */}
@@ -130,7 +140,7 @@ export function StationLocationGrid({
                     </div>
                   </div>
 
-                  <StatusBadge status={statusType} />
+                  <StatusBadge status={resolved.status} label={resolved.label} />
                 </div>
 
                 {/* Fill Percentage Mini Gauges */}
@@ -138,46 +148,51 @@ export function StationLocationGrid({
                   <div className="p-1.5 rounded-lg bg-[#E9F6F5]">
                     <span className="text-[10px] text-[#65736A] font-medium block">Plastic</span>
                     <span className="text-xs font-mono font-bold text-[#38A6A0]">
-                      {station.fill_levels.plastic}%
+                      {formatBin('plastic')}
                     </span>
                   </div>
                   <div className="p-1.5 rounded-lg bg-[#FCF5E9]">
                     <span className="text-[10px] text-[#65736A] font-medium block">Paper</span>
                     <span className="text-xs font-mono font-bold text-[#D49A3A]">
-                      {station.fill_levels.paper}%
+                      {formatBin('paper')}
                     </span>
                   </div>
                   <div className="p-1.5 rounded-lg bg-[#F0F3F7]">
                     <span className="text-[10px] text-[#65736A] font-medium block">Metal</span>
                     <span className="text-xs font-mono font-bold text-[#71849A]">
-                      {station.fill_levels.metal}%
+                      {formatBin('metal')}
                     </span>
                   </div>
                   <div className="p-1.5 rounded-lg bg-[#F4F2F0]">
                     <span className="text-[10px] text-[#65736A] font-medium block">General</span>
                     <span className="text-xs font-mono font-bold text-[#776F68]">
-                      {station.fill_levels.general}%
+                      {formatBin('general')}
                     </span>
                   </div>
                 </div>
 
-                {/* Connectivity & Last Seen Footer */}
+                {/* Connectivity & Last Reading Footer */}
                 <div className="flex items-center justify-between mt-3 text-[11px] text-[#65736A] pt-2 border-t border-[#E1E8E1]/40">
                   <span className="flex items-center gap-1.5">
                     <Signal
                       className={`w-3.5 h-3.5 ${
-                        station.is_online ? 'text-[#48A868]' : 'text-[#C48419]'
+                        station.has_sensor_error
+                          ? 'text-[#9A3412]'
+                          : station.is_online
+                          ? 'text-[#48A868]'
+                          : 'text-[#65736A]'
                       }`}
                     />
-                    {station.is_online ? 'ESP32 Online' : 'Heartbeat Lag'}
+                    {connectivityLabel}
                   </span>
 
                   <span className="font-mono">
-                    Updated{' '}
-                    {new Date(station.updated_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {station.updated_at
+                      ? `Reading ${new Date(station.updated_at).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`
+                      : 'No reading'}
                   </span>
                 </div>
               </div>

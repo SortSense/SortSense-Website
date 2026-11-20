@@ -15,7 +15,7 @@ export default function StationCard({
   isSelected,
   onSelect,
 }: StationCardProps) {
-  const getBadge = (color: 'green' | 'yellow' | 'red') => {
+  const getBadge = (color: 'green' | 'yellow' | 'red' | null) => {
     switch (color) {
       case 'red':
         return (
@@ -31,11 +31,17 @@ export default function StationCard({
             Warning
           </span>
         );
-      default:
+      case 'green':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
             <CheckCircle2 className="w-3 h-3" />
             Normal
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+            Unknown
           </span>
         );
     }

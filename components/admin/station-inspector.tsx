@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { StationLiveStatus, WasteCategory } from '@/components/types';
 import { OperationsCard } from '@/components/ui/operations-card';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusBadge, resolveStationOperationalStatus } from '@/components/ui/status-badge';
 import { FillGauge } from '@/components/ui/fill-gauge';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +29,7 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
   const [lat, setLat] = useState(station?.latitude?.toString() || '');
   const [lng, setLng] = useState(station?.longitude?.toString() || '');
   const [isProvisioning, setIsProvisioning] = useState(false);
+  const [provisionError, setProvisionError] = useState<string | null>(null);
 
   if (!station) {
     return (
@@ -46,11 +48,21 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
   const handleProvision = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProvisioning(true);
+    setProvisionError(null);
 
     try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const res = await fetch('/api/bins/provision', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({
           station_id: station.station_id,
           name,
@@ -62,13 +74,19 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
       if (res.ok) {
         setShowProvisionModal(false);
         onRefresh();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setProvisionError(errData.detail || `Failed to save coordinates (HTTP ${res.status})`);
       }
+    } catch {
+      setProvisionError('Network error while saving station coordinates.');
     } finally {
       setIsProvisioning(false);
     }
   };
 
   const categories: WasteCategory[] = ['plastic', 'paper', 'metal', 'general'];
+  const resolvedStatus = resolveStationOperationalStatus(station);
 
   return (
     <OperationsCard
@@ -81,7 +99,7 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
         </div>
       }
       subtitle={
-        <div className="flex items-center gap-2 text-xs text-[#65736A] mt-1">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-[#65736A] mt-1">
           {station.latitude && station.longitude ? (
             <span className="flex items-center gap-1">
               <MapPin className="w-3 h-3 text-[#176B45]" />
@@ -92,25 +110,18 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
           )}
           <span>•</span>
           <span>
-            Heartbeat:{' '}
-            {new Date(station.updated_at).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {station.updated_at
+              ? `Last bin reading: ${new Date(station.updated_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}${station.is_stale ? ' (Stale)' : ''}`
+              : 'No reading'}
           </span>
         </div>
       }
       action={
         <div className="flex items-center gap-2">
-          <StatusBadge
-            status={
-              station.status_color === 'red'
-                ? 'critical'
-                : station.status_color === 'yellow'
-                ? 'warning'
-                : 'normal'
-            }
-          />
+          <StatusBadge status={resolvedStatus.status} label={resolvedStatus.label} />
           <button
             onClick={() => {
               setName(station.name);
@@ -131,19 +142,22 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
         <div className="space-y-4">
           <div className="flex items-center justify-between text-xs font-bold text-[#65736A] uppercase tracking-wider font-display">
             <span>Compartment Fill Gauges</span>
-            <span>Max Fill: {station.max_fill_pct}%</span>
+            <span>
+              Max Fill: {station.max_fill_pct !== null ? `${station.max_fill_pct}%` : 'N/A'}
+            </span>
           </div>
 
           <div className="space-y-3">
             {categories.map((cat) => {
-              const pct = station.fill_levels[cat] ?? 0;
+              const pct = station.fill_levels[cat] ?? null;
+              const hasErr = Boolean(station.sensor_error_categories?.includes(cat));
               return (
                 <div
                   key={cat}
                   className="p-3 rounded-lg border border-[#E1E8E1] bg-[#F7F8F4] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex-1">
-                    <FillGauge category={cat} fillPct={pct} />
+                    <FillGauge category={cat} fillPct={pct} hasSensorError={hasErr} />
                   </div>
                   <div className="shrink-0 flex items-center justify-end">
                     <Button
@@ -209,6 +223,12 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
               Calibrate installation coordinates for{' '}
               <strong className="font-mono text-[#202A25]">{station.station_id}</strong>.
             </p>
+
+            {provisionError && (
+              <div className="p-2.5 rounded-lg bg-[#FFF0EE] border border-[#FADAD7] text-xs text-[#C84F49]">
+                {provisionError}
+              </div>
+            )}
 
             <form onSubmit={handleProvision} className="space-y-3">
               <div>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { StationLiveStatus } from '@/components/types';
 import { OperationsCard } from '@/components/ui/operations-card';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusBadge, resolveStationOperationalStatus } from '@/components/ui/status-badge';
 import {
   Cpu,
   Wifi,
@@ -33,44 +33,64 @@ export function HardwareDiagnostics({ stations }: HardwareDiagnosticsProps) {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#F7F8F4] text-[#65736A] uppercase tracking-wider font-semibold border-b border-[#E1E8E1] font-display">
                 <tr>
-                  <th className="py-2.5 px-3">Station Controller</th>
+                  <th className="py-2.5 px-3">Device Registration</th>
                   <th className="py-2.5 px-3">Target Unit</th>
                   <th className="py-2.5 px-3">Telemetry Health</th>
-                  <th className="py-2.5 px-3">Sensors Monitored</th>
-                  <th className="py-2.5 px-3">Heartbeat</th>
+                  <th className="py-2.5 px-3">Sensor Readings</th>
+                  <th className="py-2.5 px-3">Last Bin Reading</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E1E8E1] text-[#202A25]">
-                {stations.map((st) => (
-                  <tr key={st.station_id} className="hover:bg-[#E9F3ED]/30 transition-colors">
-                    <td className="py-3 px-3 font-mono font-bold flex items-center gap-2">
-                      <Wifi
-                        className={`w-3.5 h-3.5 ${
-                          st.is_online ? 'text-[#48A868]' : 'text-[#C48419]'
-                        }`}
-                      />
-                      <span>ESP32-{st.station_id}</span>
-                    </td>
-                    <td className="py-3 px-3 font-medium">{st.name}</td>
-                    <td className="py-3 px-3">
-                      <StatusBadge status={st.is_online ? 'normal' : 'offline'} label={st.is_online ? 'Online' : 'Lag'} />
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="font-mono text-[11px] text-[#65736A]">
-                        4x ToF Distance + 4x IR Break-beam
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 font-mono text-[11px] text-[#65736A]">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-[#65736A]" />
-                        {new Date(st.updated_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {stations.map((st) => {
+                  const resolved = resolveStationOperationalStatus(st);
+                  const activeReadings = (
+                    ['plastic', 'paper', 'metal', 'general'] as const
+                  ).filter((c) => st.fill_levels[c] !== null && st.fill_levels[c] !== undefined).length;
+                  const errorCount = st.sensor_error_categories?.length ?? 0;
+
+                  return (
+                    <tr key={st.station_id} className="hover:bg-[#E9F3ED]/30 transition-colors">
+                      <td className="py-3 px-3 font-mono text-xs flex items-center gap-2">
+                        <Wifi
+                          className={`w-3.5 h-3.5 ${
+                            st.has_sensor_error
+                              ? 'text-[#9A3412]'
+                              : st.is_online
+                              ? 'text-[#48A868]'
+                              : 'text-[#65736A]'
+                          }`}
+                        />
+                        <span className="text-[#65736A]">Unverified (devices restricted)</span>
+                      </td>
+                      <td className="py-3 px-3 font-medium">
+                        {st.name}{' '}
+                        <span className="font-mono text-[11px] text-[#65736A]">
+                          ({st.station_id})
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <StatusBadge status={resolved.status} label={resolved.label} />
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="font-mono text-[11px] text-[#65736A]">
+                          {activeReadings} active reading{activeReadings === 1 ? '' : 's'}
+                          {errorCount > 0 ? ` · ${errorCount} fault` : ''} (sensors restricted)
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[11px] text-[#65736A]">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-[#65736A]" />
+                          {st.updated_at
+                            ? `${new Date(st.updated_at).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}${st.is_stale ? ' (Stale)' : ''}`
+                            : 'No reading'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
