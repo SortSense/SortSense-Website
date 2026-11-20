@@ -78,13 +78,26 @@ def health_check():
 # ---------------------------------------------------------
 
 @api_router.post("/telemetry/fill-levels", status_code=status.HTTP_200_OK)
-def ingest_telemetry(payload: TelemetryPayload) -> Dict[str, Any]:
+def ingest_telemetry(
+    payload: TelemetryPayload,
+    x_device_key: Optional[str] = Header(default=None, alias="X-Device-Key"),
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
     """
-    Ingest ToF bin fill levels from ESP32-S3.
-    Updates station_status and marks station online with current timestamp.
+    Ingest ToF bin fill levels from ESP32-S3 / AI Backend.
+    In live mode, validates X-Device-Key and persists HARDWARE telemetry via ingest_bin_fill_level RPC.
     """
-    result = db.record_telemetry(payload)
-    return result
+    _require_device_auth(x_device_key, authorization)
+    try:
+        return db.record_telemetry(payload)
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except RecordNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except AuthorizationError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except DatabaseUnavailableError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
 
 
 # ---------------------------------------------------------
