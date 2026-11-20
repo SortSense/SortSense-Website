@@ -372,7 +372,8 @@ ESP32-S3 (OV5640 + LM393 IR + ToF)
 ### 6.3 Required Environment Variables
 
 - **Frontend & Backend**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- **Backend Only (Never expose to client/ESP32)**: `SUPABASE_SERVICE_ROLE_KEY`, `SORTSENSE_DEVICE_API_KEY`
+- **Backend Only (Never expose to client/ESP32)**: `SUPABASE_SERVICE_ROLE_KEY`
+- **Optional Device Ingestion Auth**: `DEVICE_API_KEY` (when unset or empty, `POST /api/events/log-waste` and `POST /api/telemetry/fill-levels` allow unauthenticated hardware/AI backend ingestion; when set, `X-Device-Key` or `Authorization: Bearer <DEVICE_API_KEY>` is enforced)
 - **Optional Station/Bin Disambiguation**: `STATION_CODE_MAP` (e.g. `{"ST-001":"NTHU-SHUIMU"}`), `BIN_MAPPING_JSON` (e.g. `{"NTHU-SHUIMU:plastic":"<bin_uuid>"}`)
 
 ### 6.4 Docker & Standalone Pitch Demo (`/demo/`)
