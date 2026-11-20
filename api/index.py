@@ -107,17 +107,19 @@ def ingest_telemetry(
 def _require_device_auth(
     x_device_key: Optional[str], authorization: Optional[str]
 ) -> None:
-    """Validate device / AI Backend API key for machine-to-cloud ingestion."""
+    """
+    Validate device / AI Backend API key when DEVICE_API_KEY (or fallback
+    SORTSENSE_DEVICE_API_KEY / TELEMETRY_INGEST_KEY) is configured.
+    When unset or empty, unauthenticated hardware/AI ingestion is permitted.
+    """
     configured_key = (
-        os.getenv("SORTSENSE_DEVICE_API_KEY") or os.getenv("TELEMETRY_INGEST_KEY") or ""
+        os.getenv("DEVICE_API_KEY")
+        or os.getenv("SORTSENSE_DEVICE_API_KEY")
+        or os.getenv("TELEMETRY_INGEST_KEY")
+        or ""
     ).strip()
-    if db.use_fixtures and not configured_key:
-        return None
     if not configured_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Device ingestion authentication is not configured (SORTSENSE_DEVICE_API_KEY).",
-        )
+        return None
     supplied = (x_device_key or "").strip()
     if not supplied and authorization and authorization.lower().startswith("bearer "):
         supplied = authorization[7:].strip()
