@@ -933,6 +933,44 @@ class _FakeRpcCall:
             }
             self._store["drop_events"].append(row)
             return SimpleNamespace(data=[dict(row)])
+        if self._fn_name == "ingest_bin_fill_level":
+            bin_id = self._params["p_bin_id"]
+            op_status = self._params.get("p_operational_status") or "NORMAL"
+            fill_pct = self._params.get("p_fill_percentage")
+            measured_at = self._params.get("p_measured_at") or "2026-11-21T00:00:00+00:00"
+            target_bin = next((b for b in self._store.get("bins", []) if b.get("bin_id") == bin_id), None)
+            if not target_bin:
+                raise RuntimeError(f"P0002 Bin {bin_id} not found")
+
+            bin_statuses = self._store.setdefault("bin_status", [])
+            existing = next((s for s in bin_statuses if s.get("bin_id") == bin_id), None)
+            target_fill = round(float(fill_pct), 2) if op_status == "NORMAL" else (existing.get("fill_percentage") if existing else None)
+
+            for s in self._store.get("sensors", []):
+                if s.get("bin_id") == bin_id and s.get("sensor_type") == "TOF" and s.get("is_active", True):
+                    s["last_read_at"] = measured_at
+                    if op_status == "NORMAL":
+                        self._store.setdefault("sensor_readings", []).append({
+                            "reading_id": f"sr-{len(self._store['sensor_readings']) + 1}",
+                            "sensor_id": s["sensor_id"],
+                            "distance_mm": self._params.get("p_distance_mm"),
+                            "fill_percentage": target_fill,
+                            "recorded_at": measured_at,
+                        })
+
+            row = {
+                "bin_id": bin_id,
+                "fill_percentage": target_fill,
+                "operational_status": op_status,
+                "measured_at": measured_at,
+                "updated_at": measured_at,
+                "reading_source": "HARDWARE",
+            }
+            if existing:
+                existing.update(row)
+            else:
+                bin_statuses.append(row)
+            return SimpleNamespace(data=[dict(row)])
         if self._fn_name != "admin_simulate_bin_telemetry":
             raise RuntimeError(f"Unknown RPC: {self._fn_name}")
         profile = self._store.get("profiles") or {}
@@ -1014,6 +1052,7 @@ class TestAdminStationManagement:
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         payload = {
             "station_code": "ST-010",
@@ -1041,6 +1080,7 @@ class TestAdminStationManagement:
         store = self._make_store(role="ADMIN")
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.post(
@@ -1072,6 +1112,7 @@ class TestAdminStationManagement:
         store = self._make_store(role="ADMIN")
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         hdr = {"Authorization": "Bearer valid-jwt"}
 
@@ -1122,6 +1163,7 @@ class TestAdminStationManagement:
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.post(
             "/api/admin/stations",
@@ -1151,6 +1193,7 @@ class TestAdminStationManagement:
         )
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         hdr = {"Authorization": "Bearer valid-jwt"}
 
@@ -1195,6 +1238,7 @@ class TestAdminStationManagement:
         store = self._make_store(role="ADMIN")
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.post(
@@ -1285,6 +1329,7 @@ class TestAdminStationManagement:
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.patch(
             "/api/admin/stations/ST-MOVE",
@@ -1341,6 +1386,7 @@ class TestAdminStationManagement:
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.post(
             "/api/admin/stations",
@@ -1385,6 +1431,7 @@ class TestAdminStationManagement:
         )
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.get("/api/dashboard/live-status")
         assert res.status_code == 200
@@ -1455,6 +1502,7 @@ class TestAdminBinTelemetrySimulation:
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         payload = {"readings": [{"bin_id": "c01645cf-6eab-4dc5-9a79-4a9b9405f37f", "fill_percentage": 85.0}]}
         assert client.post("/api/admin/telemetry/simulate", json=payload).status_code == 401
@@ -1469,6 +1517,7 @@ class TestAdminBinTelemetrySimulation:
         store = self._make_nthu_shuimu_store(role="ADMIN")
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
 
         res = client.post(
@@ -1517,6 +1566,7 @@ class TestAdminBinTelemetrySimulation:
         })
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         hdr = {"Authorization": "Bearer valid-jwt"}
 
@@ -1600,6 +1650,7 @@ class TestHardwareWasteDropIntegration:
         store = self._make_store()
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         hdr = {"X-Device-Key": "secret-device-key"}
 
         # 1. Correct sort via ST-001 -> NTHU-SHUIMU mapping & category normalization
@@ -1662,6 +1713,7 @@ class TestHardwareWasteDropIntegration:
         store = self._make_store()
         fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
         hdr = {"X-Device-Key": "secret-device-key"}
 
         # Unknown station -> 404
@@ -1706,3 +1758,55 @@ class TestHardwareWasteDropIntegration:
             },
         )
         assert r_db.status_code == 503
+
+
+class TestHardwareFillLevelsIntegration:
+    """Tests for hardware ToF fill-level ingestion (POST /api/telemetry/fill-levels) in live mode."""
+
+    def test_hardware_fill_levels_persists_bin_status_and_sensor_readings(self, monkeypatch):
+        monkeypatch.setattr(db, "use_fixtures", False)
+        monkeypatch.setenv("SORTSENSE_DEVICE_API_KEY", "secret-device-key")
+        monkeypatch.setenv("STATION_CODE_MAP", '{"ST-001": "NTHU-SHUIMU"}')
+
+        store = TestHardwareWasteDropIntegration()._make_store()
+        store["sensors"] = [
+            {"sensor_id": "tof-pl-1", "bin_id": "bin-pl-1", "sensor_type": "TOF", "is_active": True},
+        ]
+        store["sensor_readings"] = []
+        store["bin_status"] = []
+        fake = _MutableFakeSupabase(store)
+        monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+
+        # Unauthenticated rejected
+        assert client.post(
+            "/api/telemetry/fill-levels",
+            json={"station_id": "ST-001", "fill_levels": {"plastic": 72.5, "general": None}},
+        ).status_code == 401
+
+        # Authenticated hardware telemetry succeeds
+        res = client.post(
+            "/api/telemetry/fill-levels",
+            headers={"X-Device-Key": "secret-device-key"},
+            json={"station_id": "ST-001", "fill_levels": {"plastic": 72.5, "general": None}},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["reading_source"] == "HARDWARE"
+        assert len(store["sensor_readings"]) == 1
+        assert store["sensor_readings"][0]["fill_percentage"] == 72.5
+
+        by_bin = {b["bin_id"]: b for b in store["bin_status"]}
+        assert by_bin["bin-pl-1"]["reading_source"] == "HARDWARE"
+        assert by_bin["bin-pl-1"]["fill_percentage"] == 72.5
+        assert by_bin["bin-ge-1"]["reading_source"] == "HARDWARE"
+        assert by_bin["bin-ge-1"]["operational_status"] == "SENSOR_ERROR"
+        assert by_bin["bin-ge-1"]["fill_percentage"] is None
+
+        # Simulation cannot overwrite HARDWARE telemetry
+        r_sim = client.post(
+            "/api/admin/telemetry/simulate",
+            headers={"Authorization": "Bearer valid-jwt"},
+            json={"readings": [{"bin_id": "bin-pl-1", "fill_percentage": 10.0}]},
+        )
+        assert r_sim.status_code == 409
