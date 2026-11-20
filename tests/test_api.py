@@ -1617,11 +1617,14 @@ class TestHardwareWasteDropIntegration:
             "ops": [],
         }
 
-    def test_device_auth_required_in_live_mode(self, monkeypatch):
+    def test_device_auth_optional_when_unconfigured_and_enforced_when_set(self, monkeypatch):
         monkeypatch.setattr(db, "use_fixtures", False)
-        monkeypatch.setenv("SORTSENSE_DEVICE_API_KEY", "secret-device-key")
+        monkeypatch.delenv("DEVICE_API_KEY", raising=False)
+        monkeypatch.delenv("SORTSENSE_DEVICE_API_KEY", raising=False)
+        monkeypatch.delenv("TELEMETRY_INGEST_KEY", raising=False)
         db._recent_drop_fingerprints.clear()
-        fake = _MutableFakeSupabase(self._make_store())
+        store = self._make_store()
+        fake = _MutableFakeSupabase(store)
         monkeypatch.setattr(db, "client", fake)
 
         payload = {
@@ -1631,16 +1634,32 @@ class TestHardwareWasteDropIntegration:
             "confidence": 0.91,
             "is_correct_sort": True,
         }
+        # Unkeyed mode (DEVICE_API_KEY unset): unauthenticated ingestion allowed
+        assert client.post("/api/events/log-waste", json=payload).status_code == 201
+        assert client.post(
+            "/api/telemetry/fill-levels",
+            json={"station_id": "NTHU-SHUIMU", "fill_levels": {"plastic": 55.0}},
+        ).status_code == 200
+
+        # Keyed mode (DEVICE_API_KEY set): missing/wrong key rejected with 401, valid key accepted
+        db._recent_drop_fingerprints.clear()
+        monkeypatch.setenv("DEVICE_API_KEY", "secret-device-key")
         assert client.post("/api/events/log-waste", json=payload).status_code == 401
         assert client.post(
             "/api/events/log-waste",
             headers={"X-Device-Key": "wrong-key"},
             json=payload,
         ).status_code == 401
-
-        monkeypatch.delenv("SORTSENSE_DEVICE_API_KEY", raising=False)
-        monkeypatch.delenv("TELEMETRY_INGEST_KEY", raising=False)
-        assert client.post("/api/events/log-waste", json=payload).status_code == 503
+        assert client.post(
+            "/api/events/log-waste",
+            headers={"X-Device-Key": "secret-device-key"},
+            json=payload,
+        ).status_code == 201
+        assert client.post(
+            "/api/telemetry/fill-levels",
+            headers={"X-Device-Key": "secret-device-key"},
+            json={"station_id": "NTHU-SHUIMU", "fill_levels": {"plastic": 60.0}},
+        ).status_code == 200
 
     def test_valid_hardware_event_correct_incorrect_and_duplicate(self, monkeypatch):
         monkeypatch.setattr(db, "use_fixtures", False)
