@@ -12,23 +12,20 @@ import { AppSidebar, UserRole } from '@/components/shell/app-sidebar';
 import { AppHeader } from '@/components/shell/app-header';
 import { StationLocationGrid } from '@/components/ui/station-location-grid';
 import { StationInspector } from '@/components/admin/station-inspector';
+import { StationManagement } from '@/components/admin/station-management';
 import { PriorityQueue } from '@/components/janitor/priority-queue';
 import { HardwareDiagnostics } from '@/components/admin/hardware-diagnostics';
 import { DisposalHistoryView } from '@/components/admin/disposal-history-view';
 import AnalyticsView from '@/components/analytics-view';
 import { OperationsCard } from '@/components/ui/operations-card';
 import {
-  MapPin,
-  Users,
-  History,
-  Wrench,
-  Info,
   AlertCircle,
-  Database,
   Loader2,
   ShieldAlert,
   LogOut,
+  ArrowRight,
 } from 'lucide-react';
+import { StatusBadge, resolveStationOperationalStatus } from '@/components/ui/status-badge';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'inactive' | 'invalid_role';
 
@@ -39,7 +36,6 @@ export default function DashboardPage() {
   // Authentication & Profile authorization state
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const [authenticatedRole, setAuthenticatedRole] = useState<UserRole | null>(null);
-  const [role, setRole] = useState<UserRole>('ADMIN');
   const [userName, setUserName] = useState<string>('Staff User');
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -97,9 +93,8 @@ export default function DashboardPage() {
 
         const validRole = dbRole as UserRole;
         setAuthenticatedRole(validRole);
-        setRole(validRole);
         if (validRole === 'JANITOR') {
-          setCurrentView('priority');
+          setCurrentView('janitor-overview');
         } else {
           setCurrentView('overview');
         }
@@ -123,11 +118,90 @@ export default function DashboardPage() {
     if (isManual) setIsPolling(true);
 
     try {
-      const [statusResult, analyticsResult, eventsResult] = await Promise.allSettled([
-        fetch('/api/dashboard/live-status'),
-        fetch('/api/dashboard/analytics'),
-        fetch('/api/dashboard/recent-events?limit=15'),
-      ]);
+      const isAdmin = authenticatedRole === 'ADMIN';
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      let activeSession = session;
+      const nowEpoch = Math.floor(Date.now() / 1000);
+      const isExpiringSoon =
+        typeof activeSession?.expires_at === 'number' &&
+        activeSession.expires_at - nowEpoch < 60;
+
+      if (isAdmin && (!activeSession?.access_token || isExpiringSoon)) {
+        const { data: refreshed, error: refreshError } =
+          await supabase.auth.refreshSession();
+        if (refreshError || !refreshed.session?.access_token) {
+          setAuthStatus('unauthenticated');
+          router.push('/login');
+          return;
+        }
+        activeSession = refreshed.session;
+      }
+
+      const authHeaders: HeadersInit | undefined = activeSession?.access_token
+        ? { Authorization: `Bearer ${activeSession.access_token}` }
+        : undefined;
+
+      const [statusResult, initialAnalyticsResult, initialEventsResult] =
+        await Promise.allSettled([
+          fetch('/api/dashboard/live-status', { cache: 'no-store' }),
+          isAdmin
+            ? fetch('/api/dashboard/analytics', { headers: authHeaders, cache: 'no-store' })
+            : Promise.resolve(null),
+          isAdmin
+            ? fetch('/api/dashboard/recent-events?limit=15', { headers: authHeaders, cache: 'no-store' })
+            : Promise.resolve(null),
+        ]);
+
+      let analyticsResult = initialAnalyticsResult;
+      let eventsResult = initialEventsResult;
+
+      // Retry a 401 on ADMIN endpoints at most once after refreshing the session
+      const analyticsUnauthorized =
+        isAdmin &&
+        analyticsResult.status === 'fulfilled' &&
+        analyticsResult.value?.status === 401;
+      const eventsUnauthorized =
+        isAdmin &&
+        eventsResult.status === 'fulfilled' &&
+        eventsResult.value?.status === 401;
+
+      if (analyticsUnauthorized || eventsUnauthorized) {
+        const { data: refreshed, error: refreshError } =
+          await supabase.auth.refreshSession();
+        const retryToken = refreshed.session?.access_token;
+        if (refreshError || !retryToken) {
+          setAuthStatus('unauthenticated');
+          router.push('/login');
+          return;
+        }
+        const retryHeaders: HeadersInit = { Authorization: `Bearer ${retryToken}` };
+        const [retryAnalytics, retryEvents] = await Promise.allSettled([
+          analyticsUnauthorized
+            ? fetch('/api/dashboard/analytics', { headers: retryHeaders, cache: 'no-store' })
+            : Promise.resolve(null),
+          eventsUnauthorized
+            ? fetch('/api/dashboard/recent-events?limit=15', { headers: retryHeaders, cache: 'no-store' })
+            : Promise.resolve(null),
+        ]);
+        if (analyticsUnauthorized) analyticsResult = retryAnalytics;
+        if (eventsUnauthorized) eventsResult = retryEvents;
+
+        const stillUnauthorized =
+          (analyticsUnauthorized &&
+            analyticsResult.status === 'fulfilled' &&
+            analyticsResult.value?.status === 401) ||
+          (eventsUnauthorized &&
+            eventsResult.status === 'fulfilled' &&
+            eventsResult.value?.status === 401);
+        if (stillUnauthorized) {
+          setAuthStatus('unauthenticated');
+          router.push('/login');
+          return;
+        }
+      }
 
       let hasSuccess = false;
       const failedFeeds: string[] = [];
@@ -150,22 +224,26 @@ export default function DashboardPage() {
         failedFeeds.push('station telemetry');
       }
 
-      // 2. Daily Analytics
-      if (analyticsResult.status === 'fulfilled' && analyticsResult.value.ok) {
-        const data = await analyticsResult.value.json();
-        setAnalytics(data);
-        hasSuccess = true;
-      } else {
-        failedFeeds.push('recycling analytics');
+      // 2. Daily Analytics (ADMIN only)
+      if (isAdmin) {
+        if (analyticsResult.status === 'fulfilled' && analyticsResult.value && analyticsResult.value.ok) {
+          const data = await analyticsResult.value.json();
+          setAnalytics(data);
+          hasSuccess = true;
+        } else {
+          failedFeeds.push('recycling analytics');
+        }
       }
 
-      // 3. Recent verified drop events
-      if (eventsResult.status === 'fulfilled' && eventsResult.value.ok) {
-        const data = await eventsResult.value.json();
-        setRecentEvents(data.events || []);
-        hasSuccess = true;
-      } else {
-        failedFeeds.push('disposal activity logs');
+      // 3. Recent verified drop events (ADMIN only)
+      if (isAdmin) {
+        if (eventsResult.status === 'fulfilled' && eventsResult.value && eventsResult.value.ok) {
+          const data = await eventsResult.value.json();
+          setRecentEvents(data.events || []);
+          hasSuccess = true;
+        } else {
+          failedFeeds.push('disposal activity logs');
+        }
       }
 
       if (hasSuccess) {
@@ -184,7 +262,7 @@ export default function DashboardPage() {
       isFetchingRef.current = false;
       if (isManual) setIsPolling(false);
     }
-  }, []);
+  }, [supabase, authenticatedRole, router]);
 
   // Periodic REST polling every 5 seconds (paused when tab hidden, guarded by in-flight ref)
   useEffect(() => {
@@ -222,22 +300,11 @@ export default function DashboardPage() {
     };
   }, [authStatus, fetchDashboardData]);
 
-  // Handle Sign Out
+  // Handle Sign Out (redirects logged-out users to public home page /)
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    router.push('/');
     router.refresh();
-  };
-
-  // Switch role preview (strictly restricted to authenticated ADMIN users)
-  const handleRoleToggle = (newRole: UserRole) => {
-    if (authenticatedRole !== 'ADMIN') return;
-    setRole(newRole);
-    if (newRole === 'JANITOR') {
-      setCurrentView('priority');
-    } else {
-      setCurrentView('overview');
-    }
   };
 
   // Loading state during profile verification
@@ -282,19 +349,32 @@ export default function DashboardPage() {
     );
   }
 
-  // Strictly enforce that Janitors can never see admin views even if requested
+  const role: UserRole = authenticatedRole ?? 'JANITOR';
+
+  // Strictly enforce role-based view authorization
+  const adminViews = new Set(['overview', 'stations', 'priority', 'analytics', 'disposal-history']);
+  const janitorViews = new Set(['janitor-overview', 'priority']);
+
   const effectiveView =
-    role === 'JANITOR' &&
-    (currentView === 'overview' ||
-      currentView === 'sensors' ||
-      currentView === 'analytics' ||
-      currentView === 'disposal-history' ||
-      currentView === 'locations' ||
-      currentView === 'staff')
-      ? 'priority'
-      : currentView;
+    role === 'ADMIN'
+      ? adminViews.has(currentView)
+        ? currentView
+        : 'overview'
+      : janitorViews.has(currentView)
+        ? currentView
+        : 'janitor-overview';
+
+  const viewLabels: Record<string, string> = {
+    overview: 'Overview',
+    'janitor-overview': 'Overview',
+    stations: 'Station Management',
+    priority: 'Priority Queue',
+    analytics: 'Analytics',
+    'disposal-history': 'Disposal History',
+  };
 
   const criticalCount = stations.filter((s) => s.status_color === 'red').length;
+  const onlineCount = stations.filter((s) => s.is_online).length;
 
   return (
     <div className="min-h-screen bg-[#F7F8F4] text-[#202A25] flex">
@@ -310,30 +390,121 @@ export default function DashboardPage() {
 
       {/* Main Content Pane */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
-        {/* Header */}
         <AppHeader
           role={role}
-          authenticatedRole={authenticatedRole}
           userName={userName}
+          currentViewLabel={viewLabels[effectiveView] ?? 'Overview'}
           isPolling={isPolling}
           lastUpdated={lastUpdated}
           onRefresh={() => fetchDashboardData(true)}
           onSignOut={handleSignOut}
           onToggleMobileMenu={() => setIsMobileMenuOpen((v) => !v)}
-          onToggleRolePreview={authenticatedRole === 'ADMIN' ? handleRoleToggle : undefined}
         />
 
         {/* Operational Workspace */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 space-y-5 max-w-7xl w-full mx-auto">
           {errorMsg && (
-            <div className="p-3 bg-[#FFF0EE] border border-[#FADAD7] rounded-xl text-[#C84F49] text-xs font-semibold flex items-center gap-2">
+            <div className="px-4 py-2.5 bg-[#FFF0EE] border border-[#FADAD7] rounded-lg text-[#C84F49] text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* VIEW: Janitor Priority Bins (Default for JANITOR) */}
+          {/* VIEW: JANITOR Overview                               */}
+          {/* ==================================================== */}
+          {role === 'JANITOR' && effectiveView === 'janitor-overview' && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Monitored Stations
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#202A25] mt-1 block">
+                    {stations.length}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Online Units
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#176B45] mt-1 block">
+                    {onlineCount} / {stations.length}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Critical Stations (≥85%)
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#C84F49] mt-1 block">
+                    {criticalCount}
+                  </span>
+                </div>
+              </div>
+
+              <OperationsCard
+                title="Campus Station Status"
+                subtitle="Live compartment fill levels across active stations"
+                action={
+                  <button
+                    onClick={() => setCurrentView('priority')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#176B45] text-white hover:bg-[#0F4C35] transition-colors"
+                  >
+                    Open Priority Queue
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                }
+              >
+                {stations.length === 0 ? (
+                  <p className="text-xs text-[#65736A] py-4 text-center">
+                    No active stations reported.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#F7F8F4] text-[#65736A] uppercase tracking-wider font-semibold border-b border-[#E1E8E1]">
+                        <tr>
+                          <th className="py-2.5 px-3">Station</th>
+                          <th className="py-2.5 px-3">Plastic</th>
+                          <th className="py-2.5 px-3">Paper</th>
+                          <th className="py-2.5 px-3">Metal</th>
+                          <th className="py-2.5 px-3">General</th>
+                          <th className="py-2.5 px-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E1E8E1] text-[#202A25]">
+                        {stations.map((st) => {
+                          const resolved = resolveStationOperationalStatus(st);
+                          const fmt = (v: number | null) =>
+                            v !== null && v !== undefined ? `${v}%` : 'N/A';
+                          return (
+                            <tr key={st.station_id} className="hover:bg-[#F7F8F4]/60">
+                              <td className="py-3 px-3">
+                                <span className="font-semibold block">{st.name}</span>
+                                <span className="font-mono text-[11px] text-[#65736A]">
+                                  {st.station_id}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-mono">{fmt(st.fill_levels.plastic)}</td>
+                              <td className="py-3 px-3 font-mono">{fmt(st.fill_levels.paper)}</td>
+                              <td className="py-3 px-3 font-mono">{fmt(st.fill_levels.metal)}</td>
+                              <td className="py-3 px-3 font-mono">{fmt(st.fill_levels.general)}</td>
+                              <td className="py-3 px-3">
+                                <StatusBadge status={resolved.status} label={resolved.label} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </OperationsCard>
+            </div>
+          )}
+
+          {/* ==================================================== */}
+          {/* VIEW: Priority Queue (ADMIN & JANITOR)               */}
           {/* ==================================================== */}
           {effectiveView === 'priority' && (
             <PriorityQueue
@@ -343,12 +514,46 @@ export default function DashboardPage() {
           )}
 
           {/* ==================================================== */}
-          {/* VIEW: System Overview (Default for ADMIN) */}
+          {/* VIEW: Overview (ADMIN only)                          */}
           {/* ==================================================== */}
-          {effectiveView === 'overview' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Station Fleet Grid (7 cols) */}
+          {role === 'ADMIN' && effectiveView === 'overview' && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Active Stations
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#202A25] mt-1 block">
+                    {stations.length}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Online Units
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#176B45] mt-1 block">
+                    {onlineCount} / {stations.length}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Critical Alerts (≥85%)
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#C84F49] mt-1 block">
+                    {criticalCount}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E1E8E1] rounded-lg p-4">
+                  <span className="text-[11px] font-semibold text-[#65736A] uppercase tracking-wider block">
+                    Drops Today
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-[#202A25] mt-1 block">
+                    {analytics ? analytics.total_items_today.toLocaleString() : '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <div className="lg:col-span-7">
                   <StationLocationGrid
                     stations={stations}
@@ -357,7 +562,6 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* Selected Station Inspector (5 cols) */}
                 <div className="lg:col-span-5">
                   <StationInspector
                     station={selectedStation}
@@ -366,17 +570,18 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Bottom Quick Analytics & Drop Stream */}
               <DisposalHistoryView events={recentEvents.slice(0, 5)} />
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* VIEW: Station Fleet & Bins */}
+          {/* VIEW: Station Management (ADMIN only)                */}
           {/* ==================================================== */}
-          {effectiveView === 'stations' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {role === 'ADMIN' && effectiveView === 'stations' && (
+            <div className="space-y-5">
+              <StationManagement onDashboardRefresh={() => fetchDashboardData(true)} />
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <div className="lg:col-span-7">
                   <StationLocationGrid
                     stations={stations}
@@ -391,13 +596,15 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
+
+              <HardwareDiagnostics stations={stations} />
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* VIEW: Recycling Analytics */}
+          {/* VIEW: Analytics (ADMIN only)                         */}
           {/* ==================================================== */}
-          {effectiveView === 'analytics' && (
+          {role === 'ADMIN' && effectiveView === 'analytics' && (
             <AnalyticsView
               analytics={analytics}
               recentEvents={recentEvents}
@@ -405,143 +612,10 @@ export default function DashboardPage() {
           )}
 
           {/* ==================================================== */}
-          {/* VIEW: AI Verified Disposal History */}
+          {/* VIEW: Disposal History (ADMIN only)                  */}
           {/* ==================================================== */}
-          {effectiveView === 'disposal-history' && (
+          {role === 'ADMIN' && effectiveView === 'disposal-history' && (
             <DisposalHistoryView events={recentEvents} />
-          )}
-
-          {/* ==================================================== */}
-          {/* VIEW: Sensor Diagnostics */}
-          {/* ==================================================== */}
-          {effectiveView === 'sensors' && (
-            <HardwareDiagnostics stations={stations} />
-          )}
-
-          {/* ==================================================== */}
-          {/* VIEW: Campus Locations (Database Entity) */}
-          {/* ==================================================== */}
-          {effectiveView === 'locations' && (
-            <OperationsCard
-              title={
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#176B45]" />
-                  <span>Campus Locations Registry</span>
-                </div>
-              }
-              subtitle="Registered physical zones and building departments from the Supabase locations table"
-            >
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {stations.map((st) => (
-                    <div
-                      key={st.station_id}
-                      className="p-4 rounded-xl border border-[#E1E8E1] bg-[#F7F8F4] space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-sm text-[#202A25] font-display">
-                          {st.name}
-                        </h4>
-                        <span className="font-mono text-xs text-[#176B45] font-bold">
-                          {st.station_id}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#65736A]">
-                        {st.latitude && st.longitude
-                          ? `Coordinates: ${st.latitude.toFixed(4)}, ${st.longitude.toFixed(4)}`
-                          : 'Coordinates: Awaiting GPS Provisioning'}
-                      </p>
-                      <div className="text-[11px] text-[#65736A] pt-1">
-                        Capacity: 4 Monitored Compartments (Plastic, Paper, Metal, General)
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="p-4 rounded-xl bg-white border border-[#E1E8E1] text-xs text-[#65736A] flex items-start gap-2">
-                  <Database className="w-4 h-4 text-[#176B45] shrink-0 mt-0.5" />
-                  <p>
-                    <strong>Database Architecture:</strong> Locations are grouped in the{' '}
-                    <code>public.locations</code> table. Each location maps to one or more units in{' '}
-                    <code>public.stations</code>. Additions require administrative database authorization.
-                  </p>
-                </div>
-              </div>
-            </OperationsCard>
-          )}
-
-          {/* ==================================================== */}
-          {/* PENDING BACKEND VIEWS (Honest Architecture) */}
-          {/* ==================================================== */}
-          {effectiveView === 'staff' && (
-            <OperationsCard
-              title={
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#176B45]" />
-                  <span>Staff Account Administration</span>
-                </div>
-              }
-              subtitle="User access management linked to Supabase Auth and profiles entity"
-            >
-              <div className="p-6 text-center space-y-3 bg-[#F7F8F4] rounded-xl border border-[#E1E8E1]">
-                <Info className="w-6 h-6 text-[#176B45] mx-auto" />
-                <h4 className="font-bold text-sm text-[#202A25] font-display">
-                  Administrative Endpoint Pending
-                </h4>
-                <p className="text-xs text-[#65736A] max-w-md mx-auto leading-relaxed">
-                  Managing staff profiles (assigning <code>ADMIN</code> vs <code>JANITOR</code> roles and toggle of{' '}
-                  <code>is_active</code>) requires administrative service-role operations. This view is reserved for
-                  the upcoming staff management API module.
-                </p>
-              </div>
-            </OperationsCard>
-          )}
-
-          {effectiveView === 'my-history' && (
-            <OperationsCard
-              title={
-                <div className="flex items-center gap-2">
-                  <History className="w-4 h-4 text-[#176B45]" />
-                  <span>Personal Emptying History</span>
-                </div>
-              }
-              subtitle="Historical maintenance records logged in bin_emptying_events"
-            >
-              <div className="p-6 text-center space-y-3 bg-[#F7F8F4] rounded-xl border border-[#E1E8E1]">
-                <Info className="w-6 h-6 text-[#176B45] mx-auto" />
-                <h4 className="font-bold text-sm text-[#202A25] font-display">
-                  Backend Query Integration In Progress
-                </h4>
-                <p className="text-xs text-[#65736A] max-w-md mx-auto leading-relaxed">
-                  Emptying activities recorded via the Priority Queue are securely written to{' '}
-                  <code>bin_emptying_events</code>. A dedicated authenticated query endpoint will display your
-                  individual shift audit trail once deployed.
-                </p>
-              </div>
-            </OperationsCard>
-          )}
-
-          {effectiveView === 'report-fault' && (
-            <OperationsCard
-              title={
-                <div className="flex items-center gap-2">
-                  <Wrench className="w-4 h-4 text-[#9A3412]" />
-                  <span>Report Sensor or Hardware Fault</span>
-                </div>
-              }
-              subtitle="Log hardware issues for physical inspection by engineering staff"
-            >
-              <div className="p-6 text-center space-y-3 bg-[#F7F8F4] rounded-xl border border-[#E1E8E1]">
-                <Info className="w-6 h-6 text-[#176B45] mx-auto" />
-                <h4 className="font-bold text-sm text-[#202A25] font-display">
-                  Maintenance Ticket Endpoint Pending
-                </h4>
-                <p className="text-xs text-[#65736A] max-w-md mx-auto leading-relaxed">
-                  Hardware fault tickets will connect directly to maintenance dispatch. If a ToF sensor is currently
-                  occluded or malfunctioning, note it during collection in the Priority Queue.
-                </p>
-              </div>
-            </OperationsCard>
           )}
         </main>
       </div>

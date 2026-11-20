@@ -2,23 +2,58 @@ export type WasteCategory = 'plastic' | 'paper' | 'metal' | 'general';
 
 export type StatusColor = 'green' | 'yellow' | 'red';
 
+export type StationConnectivityStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+
 export interface FillLevels {
-  plastic: number;
-  paper: number;
-  metal: number;
-  general: number;
+  plastic: number | null;
+  paper: number | null;
+  metal: number | null;
+  general: number | null;
+}
+
+export interface LiveBinItem {
+  bin_id: string;
+  category_id?: string | null;
+  category_slug?: WasteCategory | null;
+  category_name: string;
+  capacity_liters: number;
+  fill_percentage: number | null;
+  operational_status?: string | null;
+  reading_source?: 'HARDWARE' | 'SIMULATED' | null;
+  updated_at: string | null;
+}
+
+export interface LiveDisposalArea {
+  area_id: string;
+  area_name: string;
+  description?: string | null;
+  bins: LiveBinItem[];
+}
+
+export interface LiveFloor {
+  floor_id: string;
+  floor_name: string;
+  floor_order: number;
+  disposal_areas: LiveDisposalArea[];
 }
 
 export interface StationLiveStatus {
   station_id: string;
   name: string;
-  latitude: number;
-  longitude: number;
+  location_name?: string | null;
+  description?: string | null;
+  latitude: number | null;
+  longitude: number | null;
   is_online: boolean;
-  max_fill_pct: number;
-  status_color: StatusColor;
+  connectivity_status?: StationConnectivityStatus;
+  is_stale?: boolean;
+  has_sensor_error?: boolean;
+  sensor_error_categories?: string[];
+  max_fill_pct: number | null;
+  status_color: StatusColor | null;
   fill_levels: FillLevels;
-  updated_at: string;
+  updated_at: string | null;
+  floors?: LiveFloor[];
 }
 
 export interface LiveStatusResponse {
@@ -34,16 +69,16 @@ export interface CategoryBreakdown {
 
 export interface AnalyticsData {
   total_items_today: number;
-  sorting_accuracy_pct: number;
+  sorting_accuracy_pct: number | null;
   breakdown: CategoryBreakdown;
 }
 
 export interface WasteEvent {
   event_id: string;
   station_id: string;
-  waste_category: WasteCategory;
-  dropped_in_bin: WasteCategory;
+  waste_category: WasteCategory | 'unknown';
+  dropped_in_bin: WasteCategory | 'unknown';
   confidence: number;
-  is_correct_sort: boolean;
+  is_correct_sort: boolean | null;
   timestamp: string;
 }

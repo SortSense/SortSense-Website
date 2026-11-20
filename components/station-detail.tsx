@@ -50,8 +50,8 @@ export default function StationDetail({
 
   // Provisioning form state
   const [provName, setProvName] = useState(station?.name || '');
-  const [provLat, setProvLat] = useState(station?.latitude.toString() || '24.7956');
-  const [provLng, setProvLng] = useState(station?.longitude.toString() || '120.9923');
+  const [provLat, setProvLat] = useState(station?.latitude?.toString() || '24.7956');
+  const [provLng, setProvLng] = useState(station?.longitude?.toString() || '120.9923');
   const [isProvisioning, setIsProvisioning] = useState(false);
 
   if (!station) {
@@ -100,7 +100,7 @@ export default function StationDetail({
     }
   };
 
-  const getStatusBadge = (color: 'green' | 'yellow' | 'red') => {
+  const getStatusBadge = (color: 'green' | 'yellow' | 'red' | null) => {
     switch (color) {
       case 'red':
         return (
@@ -116,11 +116,17 @@ export default function StationDetail({
             Warning (60-84%)
           </span>
         );
-      default:
+      case 'green':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
             Normal (&lt;60%)
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+            Unknown
           </span>
         );
     }
@@ -154,9 +160,17 @@ export default function StationDetail({
 
           <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
             <MapPin className="w-3.5 h-3.5 text-gray-400" />
-            GPS: {station.latitude.toFixed(4)}, {station.longitude.toFixed(4)}
+            {station.latitude !== null && station.longitude !== null
+              ? `GPS: ${station.latitude.toFixed(4)}, ${station.longitude.toFixed(4)}`
+              : 'GPS: Location not calibrated'}
             <span className="text-gray-300">•</span>
-            Last seen: {new Date(station.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            {station.updated_at
+              ? `Last seen: ${new Date(station.updated_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}`
+              : 'No reading'}
           </p>
         </div>
 

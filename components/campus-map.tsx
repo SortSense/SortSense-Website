@@ -40,7 +40,7 @@ export default function CampusMap({
     return s.status_color === filterColor;
   });
 
-  const getPinColorClass = (color: StatusColor) => {
+  const getPinColorClass = (color: StatusColor | null) => {
     switch (color) {
       case 'red':
         return {
@@ -58,13 +58,21 @@ export default function CampusMap({
           text: 'text-yellow-700',
           border: 'border-yellow-500',
         };
-      default:
+      case 'green':
         return {
           bg: 'bg-emerald-500',
           ring: 'ring-emerald-400',
           pulse: 'bg-emerald-400',
           text: 'text-emerald-700',
           border: 'border-emerald-500',
+        };
+      default:
+        return {
+          bg: 'bg-gray-400',
+          ring: 'ring-gray-300',
+          pulse: 'bg-gray-300',
+          text: 'text-gray-600',
+          border: 'border-gray-400',
         };
     }
   };
@@ -244,7 +252,12 @@ export default function CampusMap({
         </svg>
 
         {/* Live Station Pins (Rendered on top of Map) */}
-        {filteredStations.map((station) => {
+        {filteredStations
+          .filter(
+            (station): station is StationLiveStatus & { latitude: number; longitude: number } =>
+              station.latitude !== null && station.longitude !== null
+          )
+          .map((station) => {
           const { x, y } = projectToMap(station.latitude, station.longitude);
           const isSelected = selectedStationId === station.station_id;
           const pinStyle = getPinColorClass(station.status_color);

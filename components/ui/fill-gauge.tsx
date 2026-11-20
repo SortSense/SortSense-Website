@@ -4,7 +4,7 @@ export type WasteCategory = 'plastic' | 'paper' | 'metal' | 'general';
 
 interface FillGaugeProps {
   category: WasteCategory;
-  fillPct: number;
+  fillPct: number | null;
   label?: string;
   hasSensorError?: boolean;
   className?: string;
@@ -44,11 +44,15 @@ export function FillGauge({
   className = '',
 }: FillGaugeProps) {
   const config = CATEGORY_STYLES[category];
-  const isCritical = fillPct >= 85;
-  const isWarning = fillPct >= 60 && fillPct < 85;
+  const isUnavailable = fillPct === null || Number.isNaN(fillPct);
+  const numericPct = isUnavailable ? 0 : fillPct;
+  const isCritical = !isUnavailable && numericPct >= 85;
+  const isWarning = !isUnavailable && numericPct >= 60 && numericPct < 85;
 
   const barColor = hasSensorError
     ? '#9A3412'
+    : isUnavailable
+    ? '#CBD5E1'
     : isCritical
     ? '#C84F49'
     : isWarning
@@ -69,7 +73,11 @@ export function FillGauge({
         <div className="flex items-center gap-2">
           {hasSensorError ? (
             <span className="text-[11px] font-mono font-bold text-[#9A3412] bg-[#FFEDE5] px-1.5 py-0.5 rounded">
-              Sensor Fault
+              SENSOR ERROR
+            </span>
+          ) : isUnavailable ? (
+            <span className="text-[11px] font-mono font-semibold text-[#65736A]">
+              N/A
             </span>
           ) : (
             <span
@@ -77,7 +85,7 @@ export function FillGauge({
                 isCritical ? 'text-[#C84F49]' : isWarning ? 'text-[#C48419]' : 'text-[#202A25]'
               }`}
             >
-              {fillPct.toFixed(0)}%
+              {numericPct.toFixed(0)}%
             </span>
           )}
         </div>
@@ -88,7 +96,7 @@ export function FillGauge({
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
-            width: hasSensorError ? '100%' : `${Math.min(100, Math.max(0, fillPct))}%`,
+            width: hasSensorError ? '100%' : isUnavailable ? '0%' : `${Math.min(100, Math.max(0, numericPct))}%`,
             backgroundColor: barColor,
             opacity: hasSensorError ? 0.35 : 1,
           }}

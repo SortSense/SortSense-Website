@@ -26,7 +26,7 @@ interface UrgentItem {
   station_name: string;
   category: WasteCategory;
   fillPct: number;
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
 export function PriorityQueue({ stations }: PriorityQueueProps) {
@@ -39,8 +39,8 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
 
   stations.forEach((st) => {
     categories.forEach((cat) => {
-      const fill = st.fill_levels[cat] ?? 0;
-      if (fill >= 85) {
+      const fill = st.fill_levels[cat];
+      if (fill !== null && fill !== undefined && fill >= 85) {
         urgentItems.push({
           station_id: st.station_id,
           station_name: st.name,
@@ -124,11 +124,13 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
                   <span className="flex items-center gap-1 font-mono">
                     <Clock className="w-3 h-3 text-[#65736A]" />
                     Telemetry reading:{' '}
-                    {new Date(item.updatedAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    })}
+                    {item.updatedAt
+                      ? new Date(item.updatedAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })
+                      : 'No reading'}
                   </span>
                 </div>
               </div>
