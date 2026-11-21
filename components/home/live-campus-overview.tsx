@@ -10,6 +10,11 @@ import {
   WifiOff,
 } from "lucide-react";
 import type { StationLiveStatus, WasteCategory } from "@/components/types";
+import {
+  SpringCard,
+  SpringFillBar,
+  SpringNumber,
+} from "@/components/motion/spring-primitives";
 
 type StationFilterTab = "all" | "available" | "attention";
 
@@ -176,7 +181,7 @@ export function LiveCampusOverview({
           {filteredStations.map((st) => {
             const attention = stationNeedsAttention(st);
             return (
-              <article
+              <SpringCard
                 key={st.station_id}
                 className="rounded-3xl border border-[#DCE5DC] bg-white p-5 sm:p-6 shadow-sm flex flex-col justify-between gap-5"
               >
@@ -242,19 +247,19 @@ export function LiveCampusOverview({
                             </span>
                           ) : (
                             <span className="font-mono font-bold text-[#202A25]">
-                              {fill}%
+                              <SpringNumber
+                                value={fill}
+                                suffix="%"
+                                decimals={0}
+                              />
                             </span>
                           )}
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-[#E1E8E1]">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${gaugeBarClass(
-                              fill ?? null,
-                              isErr,
-                            )}`}
-                            style={{ width: `${unavailable ? 0 : fill}%` }}
-                          />
-                        </div>
+                        <SpringFillBar
+                          value={unavailable ? 0 : fill}
+                          barClassName={gaugeBarClass(fill ?? null, isErr)}
+                          trackClassName="h-2 w-full overflow-hidden rounded-full bg-[#E1E8E1]"
+                        />
                       </div>
                     );
                   })}
@@ -274,7 +279,7 @@ export function LiveCampusOverview({
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-              </article>
+              </SpringCard>
             );
           })}
         </div>
