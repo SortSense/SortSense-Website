@@ -79,11 +79,14 @@ class ProvisionPayload(BaseModel):
 
 
 class EmptyPayload(BaseModel):
-    """Payload sent for janitor bin emptying to POST /api/bins/empty."""
+    """Payload sent for janitor/admin bin emptying to POST /api/bins/empty."""
     station_id: str = Field(..., min_length=1, description="Target station identifier")
     compartment: CompartmentTarget = Field(
         default="all",
         description="Target compartment to empty: 'all', 'plastic', 'paper', 'metal', or 'general'"
+    )
+    notes: Optional[str] = Field(
+        default=None, max_length=500, description="Optional maintenance notes"
     )
 
 

@@ -189,8 +189,11 @@ def get_live_status():
 # 4. Daily Analytics Feed
 # ---------------------------------------------------------
 
-def _require_admin_client(authorization: Optional[str]) -> Any:
-    """Validate Bearer JWT via Supabase and require an active ADMIN staff profile."""
+def _require_staff_client(
+    authorization: Optional[str],
+    allowed_roles: tuple[str, ...] = ("ADMIN", "JANITOR"),
+) -> Any:
+    """Validate Bearer JWT via Supabase and require an active staff profile with an allowed role."""
     if db.use_fixtures:
         return None
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -200,13 +203,18 @@ def _require_admin_client(authorization: Optional[str]) -> Any:
         )
     token = authorization[7:].strip()
     try:
-        return db.authenticate_staff_user(token, allowed_roles=("ADMIN",))
+        return db.authenticate_staff_user(token, allowed_roles=allowed_roles)
     except AuthenticationError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except AuthorizationError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except DatabaseUnavailableError as e:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+
+
+def _require_admin_client(authorization: Optional[str]) -> Any:
+    """Validate Bearer JWT via Supabase and require an active ADMIN staff profile."""
+    return _require_staff_client(authorization, allowed_roles=("ADMIN",))
 
 
 @api_router.get("/dashboard/analytics", response_model=AnalyticsResponse)
@@ -368,18 +376,32 @@ def provision_station(
 # ---------------------------------------------------------
 
 @api_router.post("/bins/empty", status_code=status.HTTP_200_OK)
-def empty_bin(payload: EmptyPayload) -> Dict[str, Any]:
+def empty_bin(
+    payload: EmptyPayload,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
     """
-    Reset compartment fill level to 0% (manual janitor reset).
+    Reset compartment fill level to 0% (ADMIN or JANITOR staff reset).
     Target can be 'all' or specific compartment: 'plastic', 'paper', 'metal', 'general'.
     """
+    user_client = _require_staff_client(authorization, allowed_roles=("ADMIN", "JANITOR"))
     try:
-        return db.empty_bin(payload)
+        return db.empty_bin(payload, client=user_client)
     except KeyError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
+    except RecordNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except AuthenticationError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except AuthorizationError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except DatabaseUnavailableError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
 
 
 # Register routes at both `/api/...` and root level `/...`

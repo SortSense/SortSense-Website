@@ -756,34 +756,73 @@ class DatabaseManager:
             },
         }
 
-    def empty_bin(self, payload: ProvisionPayload or Dict[str, Any]) -> Dict[str, Any]:
+    def empty_bin(
+        self, payload: Any, client: Optional[Any] = None
+    ) -> Dict[str, Any]:
         """
-        Reset compartment fill levels to 0.0 (manual janitor reset).
+        Reset compartment fill levels to 0.0 (ADMIN or JANITOR staff reset).
+        In fixture mode, updates in-memory self.stations.
+        In live mode (use_fixtures=False), calls `staff_empty_bins` RPC with the
+        authenticated staff client to atomically log `bin_emptying_events` and reset `bin_status`.
         """
         station_id = payload.station_id
         compartment = payload.compartment
+        notes = getattr(payload, "notes", None)
         now = get_current_iso_time()
 
-        if station_id not in self.stations:
-            raise KeyError(f"Station {station_id} not found")
+        if self.use_fixtures:
+            if station_id not in self.stations:
+                raise KeyError(f"Station {station_id} not found")
 
-        current_fills = self.stations[station_id]["fill_levels"]
+            current_fills = self.stations[station_id]["fill_levels"]
 
-        if compartment == "all":
-            for cat in ["plastic", "paper", "metal", "general"]:
-                current_fills[cat] = 0.0
-        elif compartment in current_fills:
-            current_fills[compartment] = 0.0
+            if compartment == "all":
+                for cat in ["plastic", "paper", "metal", "general"]:
+                    current_fills[cat] = 0.0
+            elif compartment in current_fills:
+                current_fills[compartment] = 0.0
 
-        self.stations[station_id]["fill_levels"] = current_fills
-        self.stations[station_id]["updated_at"] = now
+            self.stations[station_id]["fill_levels"] = current_fills
+            self.stations[station_id]["updated_at"] = now
 
+            return {
+                "status": "emptied",
+                "station_id": station_id,
+                "compartment": compartment,
+                "fill_levels": current_fills,
+                "updated_at": now,
+            }
+
+        if client is None:
+            raise AuthenticationError("Authentication required to empty bins.")
+
+        try:
+            rpc_res = client.rpc(
+                "staff_empty_bins",
+                {
+                    "p_station_code": station_id,
+                    "p_compartment": compartment,
+                    "p_notes": notes,
+                },
+            ).execute()
+        except Exception as exc:
+            msg = str(exc)
+            low = msg.lower()
+            if "42501" in msg or "permission denied" in low or "role required" in low:
+                raise AuthorizationError(f"Staff privileges required to empty bins: {exc}") from exc
+            if "p0002" in low or "not found" in low:
+                raise RecordNotFoundError(f"Station or matching active bin not found: {exc}") from exc
+            if "22023" in msg or "23514" in msg:
+                raise ValidationError(f"Invalid emptying request: {exc}") from exc
+            raise DatabaseUnavailableError(f"Failed to empty bins: {exc}") from exc
+
+        row = rpc_res.data[0] if isinstance(rpc_res.data, list) and rpc_res.data else (rpc_res.data or {})
         return {
             "status": "emptied",
-            "station_id": station_id,
-            "compartment": compartment,
-            "fill_levels": current_fills,
-            "updated_at": now,
+            "station_id": str(row.get("station_code") or station_id),
+            "compartment": str(row.get("compartment") or compartment),
+            "emptied_count": int(row.get("emptied_count") or 0),
+            "updated_at": row.get("emptied_at") or now,
         }
 
     def get_live_status(self) -> LiveStatusResponse:
