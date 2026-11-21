@@ -1,7 +1,8 @@
-'use client';
+"use client";
 /* eslint-disable @next/next/no-img-element */
 
 import {
+  AlertOctagon,
   ArrowDown,
   ArrowRight,
   Bot,
@@ -9,24 +10,36 @@ import {
   Check,
   ChevronRight,
   Compass,
+  LayoutDashboard,
   Lightbulb,
   LocateFixed,
   MapPin,
+  RefreshCw,
   Route,
   ScanLine,
   Signal,
   Sparkles,
-} from 'lucide-react';
-import { useState, type CSSProperties } from 'react';
-import Link from 'next/link';
-import { categories } from '@/lib/categories';
-import { PublicHeader } from '@/components/shell/public-header';
-import { PublicFooter } from '@/components/shell/public-footer';
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
+import Link from "next/link";
+import { categories } from "@/lib/categories";
+import { createClient } from "@/lib/supabase/client";
+import { PublicHeader } from "@/components/shell/public-header";
+import { PublicFooter } from "@/components/shell/public-footer";
+import { QuickSortLookup } from "@/components/home/quick-sort-lookup";
+import { LiveCampusOverview } from "@/components/home/live-campus-overview";
+import type { StationLiveStatus, WasteCategory } from "@/components/types";
 
 const campusPhoto =
-  'https://images.unsplash.com/photo-1654145167982-10c1ebde498a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=85&w=1400';
+  "https://images.unsplash.com/photo-1654145167982-10c1ebde498a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=85&w=1400";
 const binsPhoto =
-  'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=85&w=1200';
+  "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=85&w=1200";
 
 const categoryVisuals: Record<
   string,
@@ -38,72 +51,165 @@ const categoryVisuals: Record<
 > = {
   plastic: {
     imageUrl:
-      'https://images.unsplash.com/photo-1571727153934-b9e0059b7ab2?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
-    alt: 'Clean transparent plastic bottles and containers',
-    hint: 'Rinse out liquids · Keep bottle caps attached',
+      "https://images.unsplash.com/photo-1571727153934-b9e0059b7ab2?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    alt: "Clean transparent plastic bottles and containers",
+    hint: "Rinse out liquids · Keep bottle caps attached",
   },
   paper: {
     imageUrl:
-      'https://images.unsplash.com/photo-1654372066379-d8a1c70f7363?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
-    alt: 'Clean recyclable paper and flattened cardboard boxes',
-    hint: 'Keep dry · Flatten boxes before disposal',
+      "https://images.unsplash.com/photo-1654372066379-d8a1c70f7363?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    alt: "Clean recyclable paper and flattened cardboard boxes",
+    hint: "Keep dry · Flatten boxes before disposal",
   },
   metal: {
     imageUrl:
-      'https://images.unsplash.com/photo-1689555256964-aeabc20d1d3c?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
-    alt: 'Clean aluminum drink cans and metal food containers',
-    hint: 'Empty residue · Crush cans where possible',
+      "https://images.unsplash.com/photo-1689555256964-aeabc20d1d3c?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    alt: "Clean aluminum drink cans and metal food containers",
+    hint: "Empty residue · Crush cans where possible",
   },
   general: {
     imageUrl:
-      'https://images.unsplash.com/photo-1619540034640-0d41b5e0f6fc?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
-    alt: 'Everyday non-recyclable items and disposable coffee cup',
-    hint: 'Food-soiled packaging · Bag messy items',
+      "https://images.unsplash.com/photo-1619540034640-0d41b5e0f6fc?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    alt: "Everyday non-recyclable items and disposable coffee cup",
+    hint: "Food-soiled packaging · Bag messy items",
   },
 };
 
 const walkthroughSteps = [
   {
-    id: 'scan',
-    stepNumber: '01',
-    label: 'Step 01 / Scan',
-    title: 'Show the item',
+    id: "scan",
+    stepNumber: "01",
+    label: "Step 01 / Scan",
+    title: "Show the item",
     summary:
-      'The user holds an item in front of the dedicated camera scanning area beside the bins.',
+      "The user holds an item in front of the dedicated camera scanning area beside the bins.",
     details:
       "SortSense's computer vision module detects the object shape and material within seconds, eliminating disposal guesswork.",
     icon: ScanLine,
-    highlight: 'Separate camera scanning zone beside bins',
+    highlight: "Separate camera scanning zone beside bins",
   },
   {
-    id: 'guide',
-    stepNumber: '02',
-    label: 'Step 02 / Sort',
-    title: 'Follow the light',
+    id: "guide",
+    stepNumber: "02",
+    label: "Step 02 / Sort",
+    title: "Follow the light",
     summary:
-      'The matching category LED indicator lights up directly above the correct bin aperture.',
+      "The matching category LED indicator lights up directly above the correct bin aperture.",
     details:
-      'Four standard bins stand side-by-side. The wall-mounted indicator provides an unmistakable physical cue so anyone can deposit items correctly.',
+      "Four standard bins stand side-by-side. The wall-mounted indicator provides an unmistakable physical cue so anyone can deposit items correctly.",
     icon: Lightbulb,
-    highlight: 'Illuminated wall-mounted LED above matching bin',
+    highlight: "Illuminated wall-mounted LED above matching bin",
   },
   {
-    id: 'locate',
-    stepNumber: '03',
-    label: 'Step 03 / Locate',
-    title: 'Find a station',
+    id: "locate",
+    stepNumber: "03",
+    label: "Step 03 / Locate",
+    title: "Find a station",
     summary:
-      'The web companion helps you check nearby station locations and real-time bin availability.',
+      "The web companion helps you check nearby station locations and real-time bin availability.",
     details:
-      'Before walking across campus, check which station has an available bin for your specific waste stream and plan your route.',
+      "Before walking across campus, check which station has an available bin for your specific waste stream and plan your route.",
     icon: LocateFixed,
-    highlight: 'Live bin availability & distance preview',
+    highlight: "Live bin availability & distance preview",
   },
 ];
 
+function formatRelativeSync(syncedAt: Date | null): string {
+  if (!syncedAt) return "Syncing...";
+  const diffSec = Math.max(
+    0,
+    Math.floor((Date.now() - syncedAt.getTime()) / 1000),
+  );
+  if (diffSec < 45) return "Updated just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `Updated ${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  return `Updated ${diffHr}h ago`;
+}
+
 export default function HomePage() {
-  const [selectedItem, setSelectedItem] = useState('plastic');
+  const [selectedItem, setSelectedItem] = useState("plastic");
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [stations, setStations] = useState<StationLiveStatus[]>([]);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [staffRole, setStaffRole] = useState<"ADMIN" | "JANITOR" | null>(null);
+
+  const fetchLiveStations = useCallback(async (manual = false) => {
+    if (manual) setIsRefreshing(true);
+    try {
+      const res = await fetch("/api/dashboard/live-status", {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        throw new Error(`Live telemetry returned HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setStations(Array.isArray(data.stations) ? data.stations : []);
+      setLiveError(null);
+      setLastSyncedAt(new Date());
+    } catch (err) {
+      setLiveError(
+        err instanceof Error
+          ? err.message
+          : "Unable to reach live telemetry feed.",
+      );
+    } finally {
+      setLiveLoading(false);
+      if (manual) setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      await fetchLiveStations(false);
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user || !active) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, is_active")
+          .eq("user_id", user.id)
+          .single();
+        if (!active || !profile?.is_active) return;
+        const normalizedRole = String(profile.role || "").toUpperCase();
+        if (normalizedRole === "ADMIN" || normalizedRole === "JANITOR") {
+          setStaffRole(normalizedRole);
+        }
+      } catch {
+        // Public homepage stays clean if unauthenticated
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [fetchLiveStations]);
+
+  const binsNeedingAttention = useMemo(() => {
+    const keys: WasteCategory[] = ["plastic", "paper", "metal", "general"];
+    let count = 0;
+    for (const st of stations) {
+      for (const k of keys) {
+        const v = st.fill_levels[k];
+        if (v !== null && v !== undefined && v >= 80) count += 1;
+      }
+    }
+    return count;
+  }, [stations]);
+
+  const featuredStation = useMemo(() => {
+    return (
+      stations.find((s) => s.station_id === "NTHU-SHUIMU") ??
+      stations[0] ??
+      null
+    );
+  }, [stations]);
 
   const selected =
     categories.find((item) => item.slug === selectedItem) ?? categories[0];
@@ -116,6 +222,30 @@ export default function HomePage() {
       <PublicHeader />
 
       <main className="renew-home">
+        {/* ROLE-AWARE STAFF BANNER (ADMIN / JANITOR ONLY) */}
+        {staffRole && (
+          <div className="page-width pt-4">
+            <div className="rounded-2xl border border-[#176B45]/25 bg-[#E9F3ED] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 text-sm text-[#202A25]">
+                <AlertOctagon className="w-4 h-4 text-[#176B45] shrink-0" />
+                <span>
+                  Signed in as <strong>{staffRole}</strong> ·{" "}
+                  <strong>{binsNeedingAttention}</strong>{" "}
+                  {binsNeedingAttention === 1 ? "bin" : "bins"} at ≥80% fill
+                  requiring attention
+                </span>
+              </div>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl bg-[#176B45] px-4 py-2 text-xs font-semibold text-white hover:bg-[#125637] transition"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Open Staff Dashboard
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* HERO SECTION */}
         <section className="renew-hero page-width" aria-label="Introduction">
           <div className="renew-hero-bg-accent" aria-hidden="true">
@@ -151,18 +281,41 @@ export default function HomePage() {
               One clear system for knowing what goes where—and where to find the
               right bin nearby on campus.
             </p>
-            <div className="renew-actions">
-              <Link
-                className="button button-primary button-large hero-primary-cta"
-                href="/find-bin"
+            <div className="renew-actions flex-wrap">
+              <a
+                className="button button-primary button-large hero-primary-cta min-h-[44px]"
+                href="#live-stations"
               >
-                <span>Find a Bin</span>
-                <ArrowRight size={18} className="cta-arrow-icon" />
-              </Link>
-              <a className="renew-text-action" href="#process">
-                <span>See how it works</span>
-                <ArrowDown size={16} />
+                <span>Find Available Bin</span>
+                <ArrowDown size={18} className="cta-arrow-icon" />
               </a>
+              <Link
+                className="renew-text-action min-h-[44px] inline-flex items-center"
+                href={staffRole ? "/dashboard" : "/sorting-guide"}
+              >
+                <span>
+                  {staffRole ? "Staff Dashboard" : "Quick Sort Guide"}
+                </span>
+                <ArrowRight size={16} />
+              </Link>
+              <button
+                type="button"
+                onClick={() => fetchLiveStations(true)}
+                disabled={isRefreshing}
+                className="inline-flex items-center gap-1.5 min-h-[44px] rounded-full border border-[#DCE5DC] bg-white px-4 py-2 text-xs font-semibold text-[#202A25] hover:bg-[#E9F3ED] transition disabled:opacity-60"
+              >
+                <RefreshCw
+                  size={14}
+                  className={
+                    isRefreshing
+                      ? "animate-spin text-[#176B45]"
+                      : "text-[#176B45]"
+                  }
+                />
+                <span>
+                  {isRefreshing ? "Refreshing..." : "Refresh Live Feed"}
+                </span>
+              </button>
             </div>
             <div className="renew-microcopy">
               <span>
@@ -172,7 +325,7 @@ export default function HomePage() {
                 <Check size={13} /> Public campus access
               </span>
               <span>
-                <Check size={13} /> Prototype simulation
+                <Check size={13} /> {formatRelativeSync(lastSyncedAt)}
               </span>
             </div>
           </div>
@@ -184,21 +337,43 @@ export default function HomePage() {
               loading="eager"
             />
             <div className="media-scrim" />
-            <span className="photo-credit">Photo by Ahya Agawis on Unsplash</span>
+            <span className="photo-credit">
+              Photo by Ahya Agawis on Unsplash
+            </span>
 
             <div className="hero-live-card">
               <span className="live-card-icon" aria-hidden="true">
                 <MapPin size={19} />
               </span>
               <div>
-                <small>Nearest demo station</small>
-                <strong>Science Building</strong>
-                <span>150 m · Plastic available</span>
+                <small>
+                  {featuredStation
+                    ? featuredStation.location_name || "Campus station"
+                    : "Live campus feed"}
+                </small>
+                <strong>
+                  {featuredStation
+                    ? featuredStation.name
+                    : "Loading stations..."}
+                </strong>
+                <span>
+                  {featuredStation
+                    ? `${featuredStation.station_id} · ${
+                        featuredStation.max_fill_pct !== null
+                          ? `Peak fill ${featuredStation.max_fill_pct}%`
+                          : "Telemetry standby"
+                      }`
+                    : "Fetching live bin levels"}
+                </span>
               </div>
               <Link
-                href="/find-bin"
+                href={
+                  featuredStation
+                    ? `/stations/${encodeURIComponent(featuredStation.station_id)}`
+                    : "/find-bin"
+                }
                 className="hero-live-card-link"
-                aria-label="Open the bin locator for Science Building"
+                aria-label="Open live station details"
               >
                 <ArrowRight size={16} />
               </Link>
@@ -207,16 +382,30 @@ export default function HomePage() {
             <div className="hero-scan-chip">
               <span className="sensor-live-dot" aria-hidden="true" />
               <Signal size={14} />
-              <span>Demo: 4 stations simulated</span>
+              <span>
+                {liveLoading
+                  ? "Connecting to live feed..."
+                  : `${stations.length} live ${stations.length === 1 ? "station" : "stations"} · ${formatRelativeSync(lastSyncedAt)}`}
+              </span>
             </div>
           </div>
         </section>
+
+        {/* STUDENT QUICK SORT LOOKUP */}
+        <QuickSortLookup stations={stations} loading={liveLoading} />
+
+        {/* FILTERABLE LIVE CAMPUS STATION CARDS */}
+        <LiveCampusOverview
+          stations={stations}
+          loading={liveLoading}
+          error={liveError}
+        />
 
         {/* STAT BAND */}
         <section className="renew-stat-band" aria-label="System statistics">
           <div className="page-width">
             <p>
-              SortSense turns complex sensing into{' '}
+              SortSense turns complex sensing into{" "}
               <strong>one useful next step.</strong>
             </p>
             <div>
@@ -248,8 +437,8 @@ export default function HomePage() {
               <h2>A simpler path from item to bin.</h2>
             </div>
             <p>
-              The physical station guides sorting in person. The web app helps you
-              locate available bins before you walk.
+              The physical station guides sorting in person. The web app helps
+              you locate available bins before you walk.
             </p>
           </div>
 
@@ -271,7 +460,7 @@ export default function HomePage() {
                     id={`tab-${step.id}`}
                     aria-selected={isSelected}
                     aria-controls={`panel-${step.id}`}
-                    className={`walkthrough-tab ${isSelected ? 'active' : ''}`}
+                    className={`walkthrough-tab ${isSelected ? "active" : ""}`}
                     onClick={() => setActiveStepIndex(idx)}
                   >
                     <div className="tab-indicator">
@@ -319,7 +508,9 @@ export default function HomePage() {
                         <span className="camera-label">
                           AI Scanning Camera Area
                         </span>
-                        <span className="status-live-pill">Standby Scanning</span>
+                        <span className="status-live-pill">
+                          Standby Scanning
+                        </span>
                       </div>
 
                       <div className="scanner-viewfinder">
@@ -353,8 +544,8 @@ export default function HomePage() {
                     <div className="scanner-info-strip">
                       <strong>Separate Optical Scanning Console</strong>
                       <p>
-                        Item presented to the camera beside the bins. Vision model
-                        estimates classification before disposal.
+                        Item presented to the camera beside the bins. Vision
+                        model estimates classification before disposal.
                       </p>
                     </div>
                   </div>
@@ -420,7 +611,9 @@ export default function HomePage() {
                         <div className="bin-aperture-lid lid-paper" />
                         <div className="bin-body">
                           <strong>Paper</strong>
-                          <span className="bin-fill-tag fill-warn">78% full</span>
+                          <span className="bin-fill-tag fill-warn">
+                            78% full
+                          </span>
                         </div>
                       </div>
 
@@ -448,9 +641,9 @@ export default function HomePage() {
                     <div className="scanner-info-strip">
                       <strong>Simple Physical Cueing</strong>
                       <p>
-                        No moving robotic parts. Four ordinary bins equipped with
-                        internal fill sensors and wall-mounted LEDs for instant
-                        clarity.
+                        No moving robotic parts. Four ordinary bins equipped
+                        with internal fill sensors and wall-mounted LEDs for
+                        instant clarity.
                       </p>
                     </div>
                   </div>
@@ -492,7 +685,7 @@ export default function HomePage() {
                           <div className="meter-track">
                             <div
                               className="meter-bar fill-available"
-                              style={{ width: '42%' }}
+                              style={{ width: "42%" }}
                             />
                           </div>
                           <span className="bin-badge badge-available">
@@ -506,7 +699,7 @@ export default function HomePage() {
                           <div className="meter-track">
                             <div
                               className="meter-bar fill-nearly-full"
-                              style={{ width: '78%' }}
+                              style={{ width: "78%" }}
                             />
                           </div>
                           <span className="bin-badge badge-warning">
@@ -520,7 +713,7 @@ export default function HomePage() {
                           <div className="meter-track">
                             <div
                               className="meter-bar fill-full"
-                              style={{ width: '94%' }}
+                              style={{ width: "94%" }}
                             />
                           </div>
                           <span className="bin-badge badge-danger">
@@ -534,7 +727,7 @@ export default function HomePage() {
                           <div className="meter-track">
                             <div
                               className="meter-bar fill-available"
-                              style={{ width: '35%' }}
+                              style={{ width: "35%" }}
                             />
                           </div>
                           <span className="bin-badge badge-available">
@@ -579,8 +772,8 @@ export default function HomePage() {
               <h2>Not another dashboard. A better decision.</h2>
               <p>
                 SortSense brings the information people actually need to the
-                surface: the likely category, the correct destination, and whether
-                there is room when they arrive.
+                surface: the likely category, the correct destination, and
+                whether there is room when they arrive.
               </p>
               <div className="story-points">
                 <div>
@@ -641,7 +834,7 @@ export default function HomePage() {
                 const isSelected = selectedItem === category.slug;
                 return (
                   <button
-                    className={isSelected ? 'active' : ''}
+                    className={isSelected ? "active" : ""}
                     key={category.slug}
                     role="tab"
                     id={`cat-tab-${category.slug}`}
@@ -663,7 +856,7 @@ export default function HomePage() {
               role="tabpanel"
               id={`cat-panel-${selected.slug}`}
               aria-labelledby={`cat-tab-${selected.slug}`}
-              style={{ '--category-color': selected.color } as CSSProperties}
+              style={{ "--category-color": selected.color } as CSSProperties}
             >
               <div className="category-media-frame">
                 <div className="category-photo-wrapper">
@@ -735,8 +928,8 @@ export default function HomePage() {
             <h2>Ready to find your bin?</h2>
           </div>
           <p>
-            Choose a waste category, compare availability, and open directions to
-            a suitable demo station across campus.
+            Choose a waste category, compare availability, and open directions
+            to a suitable demo station across campus.
           </p>
           <Link className="button button-accent button-large" href="/find-bin">
             Find a Bin <ArrowRight size={17} />
