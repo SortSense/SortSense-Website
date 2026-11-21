@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   AlertCircle,
@@ -15,31 +15,38 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
-} from 'lucide-react';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { DynamicStationMap } from '@/components/map/dynamic-station-map';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { PublicHeader } from '@/components/shell/public-header';
+} from "lucide-react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { DynamicStationMap } from "@/components/map/dynamic-station-map";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PublicHeader } from "@/components/shell/public-header";
 import {
   availableCount,
   categories,
   type CategorySlug,
-} from '@/lib/categories';
-import { adaptStation } from '@/lib/station-adapter';
-import type { LiveStatusResponse, StationLiveStatus } from '@/components/types';
+} from "@/lib/categories";
+import { adaptStation } from "@/lib/station-adapter";
+import type { LiveStatusResponse, StationLiveStatus } from "@/components/types";
 
 function LocatorContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const initialCategory = searchParams.get('category') as CategorySlug | null;
-  const [category, setCategory] = useState<CategorySlug | 'all'>(
+  const initialCategory = searchParams.get("category") as CategorySlug | null;
+  const [category, setCategory] = useState<CategorySlug | "all">(
     categories.some((item) => item.slug === initialCategory)
       ? initialCategory!
-      : 'all',
+      : "all",
   );
 
   const [rawStations, setRawStations] = useState<StationLiveStatus[]>([]);
@@ -49,10 +56,12 @@ function LocatorContent() {
   const [isStale, setIsStale] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<'nearest' | 'availability'>('nearest');
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"nearest" | "availability">("nearest");
 
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(
+    null,
+  );
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
 
@@ -60,7 +69,9 @@ function LocatorContent() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/dashboard/live-status', { cache: 'no-store' });
+      const res = await fetch("/api/dashboard/live-status", {
+        cache: "no-store",
+      });
       if (!res.ok) {
         throw new Error(`Telemetry service returned HTTP ${res.status}`);
       }
@@ -72,7 +83,9 @@ function LocatorContent() {
       setSelectedId((prev) => prev ?? list[0]?.station_id ?? null);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Unable to reach telemetry service';
+        err instanceof Error
+          ? err.message
+          : "Unable to reach telemetry service";
       setErrorMsg(message);
       if (rawStations.length > 0) {
         setIsStale(true);
@@ -89,7 +102,9 @@ function LocatorContent() {
       setLoading(true);
       setErrorMsg(null);
       try {
-        const res = await fetch('/api/dashboard/live-status', { cache: 'no-store' });
+        const res = await fetch("/api/dashboard/live-status", {
+          cache: "no-store",
+        });
         if (!res.ok) {
           throw new Error(`Telemetry service returned HTTP ${res.status}`);
         }
@@ -103,7 +118,9 @@ function LocatorContent() {
       } catch (err) {
         if (!active) return;
         const message =
-          err instanceof Error ? err.message : 'Unable to reach telemetry service';
+          err instanceof Error
+            ? err.message
+            : "Unable to reach telemetry service";
         setErrorMsg(message);
       } finally {
         if (active) setLoading(false);
@@ -118,13 +135,13 @@ function LocatorContent() {
   // Cmd/Ctrl+K shortcut to focus search
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const stations = useMemo(
@@ -139,24 +156,24 @@ function LocatorContent() {
 
   const filtered = useMemo(() => {
     const result = stations.filter((station) => {
-      const matchesSearch = `${station.name} ${station.landmark ?? ''}`
+      const matchesSearch = `${station.name} ${station.landmark ?? ""}`
         .toLowerCase()
         .includes(query.toLowerCase());
       return (
         matchesSearch &&
-        (category === 'all' ||
+        (category === "all" ||
           station.bins.some((bin) => bin.category === category))
       );
     });
 
     return [...result].sort((a, b) => {
-      if (sort === 'availability') {
+      if (sort === "availability") {
         return availableCount(b) - availableCount(a);
       }
-      if (category !== 'all') {
+      if (category !== "all") {
         const aBin = a.bins.find((bin) => bin.category === category);
         const bBin = b.bins.find((bin) => bin.category === category);
-        const rank = { available: 0, 'nearly-full': 1, unknown: 2, full: 3 };
+        const rank = { available: 0, "nearly-full": 1, unknown: 2, full: 3 };
         if (aBin && bBin && rank[aBin.status] !== rank[bBin.status]) {
           return rank[aBin.status] - rank[bBin.status];
         }
@@ -171,16 +188,16 @@ function LocatorContent() {
   }, [stations, category, query, sort]);
 
   const recommendation = filtered.find((station) =>
-    category === 'all'
+    category === "all"
       ? availableCount(station) > 0
       : station.bins.find((bin) => bin.category === category)?.status ===
-        'available',
+        "available",
   );
 
-  const changeCategory = (value: CategorySlug | 'all') => {
+  const changeCategory = (value: CategorySlug | "all") => {
     setCategory(value);
-    if (value === 'all') {
-      router.replace('/find-bin');
+    if (value === "all") {
+      router.replace("/find-bin");
     } else {
       router.replace(`/find-bin?category=${value}`);
     }
@@ -192,8 +209,8 @@ function LocatorContent() {
       setUserLocation(null);
       return;
     }
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setLocationError('Geolocation is not supported by your browser.');
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
       return;
     }
     setLocating(true);
@@ -205,8 +222,8 @@ function LocatorContent() {
       (err) => {
         setLocationError(
           err.code === err.PERMISSION_DENIED
-            ? 'Location permission denied. Distances remain unavailable.'
-            : 'Unable to determine your current location.',
+            ? "Location permission denied. Distances remain unavailable."
+            : "Unable to determine your current location.",
         );
         setLocating(false);
       },
@@ -219,7 +236,7 @@ function LocatorContent() {
       <div className="locator-header page-width">
         <div>
           <span className="demo-label">
-            Live campus telemetry {fetchedAt ? `· Updated ${fetchedAt}` : ''}
+            Live campus telemetry {fetchedAt ? `· Updated ${fetchedAt}` : ""}
           </span>
           <h1>Find the right bin nearby.</h1>
           <p>
@@ -233,8 +250,8 @@ function LocatorContent() {
             {locationError
               ? locationError
               : userLocation
-                ? 'Showing distances from your current GPS location.'
-                : 'Enable Near Me to calculate walking distances from your location.'}
+                ? "Showing distances from your current GPS location."
+                : "Enable Near Me to calculate walking distances from your location."}
           </span>
         </div>
       </div>
@@ -251,7 +268,7 @@ function LocatorContent() {
           <span className="key-hint">⌘ K</span>
         </label>
         <button
-          className={`button near-me ${userLocation ? 'active' : ''}`}
+          className={`button near-me ${userLocation ? "active" : ""}`}
           onClick={toggleNearMe}
           disabled={locating}
         >
@@ -259,8 +276,8 @@ function LocatorContent() {
             <Loader2 size={17} className="animate-spin" />
           ) : (
             <Crosshair size={17} />
-          )}{' '}
-          {userLocation ? 'Near Me On' : 'Near Me'}
+          )}{" "}
+          {userLocation ? "Near Me On" : "Near Me"}
         </button>
       </div>
 
@@ -269,14 +286,14 @@ function LocatorContent() {
         aria-label="Waste category filters"
       >
         <button
-          className={category === 'all' ? 'active' : ''}
-          onClick={() => changeCategory('all')}
+          className={category === "all" ? "active" : ""}
+          onClick={() => changeCategory("all")}
         >
           <ListFilter size={15} /> All waste
         </button>
         {categories.map((item) => (
           <button
-            className={category === item.slug ? 'active' : ''}
+            className={category === item.slug ? "active" : ""}
             key={item.slug}
             onClick={() => changeCategory(item.slug)}
           >
@@ -297,19 +314,19 @@ function LocatorContent() {
           </div>
         </section>
       ) : (
-        <section className="locator-workspace">
-          <div className="station-panel">
+        <section className="page-width pb-12 grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+          <div className="station-panel min-h-[560px] lg:h-[calc(100vh-260px)] flex flex-col">
             <div className="panel-summary">
               <div>
                 <strong>
                   {loading && stations.length === 0
-                    ? 'Loading stations…'
+                    ? "Loading stations…"
                     : `${filtered.length} stations`}
                 </strong>
                 <span>
                   {isStale && fetchedAt
                     ? `Offline · Last updated ${fetchedAt}`
-                    : 'Live campus telemetry'}
+                    : "Live campus telemetry"}
                 </span>
               </div>
               <label>
@@ -317,11 +334,11 @@ function LocatorContent() {
                 <select
                   value={sort}
                   onChange={(event) =>
-                    setSort(event.target.value as 'nearest' | 'availability')
+                    setSort(event.target.value as "nearest" | "availability")
                   }
                 >
                   <option value="nearest">
-                    {userLocation ? 'Nearest first' : 'Default order'}
+                    {userLocation ? "Nearest first" : "Default order"}
                   </option>
                   <option value="availability">Best availability</option>
                 </select>
@@ -341,41 +358,37 @@ function LocatorContent() {
               </div>
             )}
 
-            <div className="station-scroll">
+            <div className="station-scroll flex-1 overflow-y-auto pr-2">
               {recommendation && (
                 <article className="recommendation-card">
                   <span className="recommendation-label">
                     <Check size={13} /> Recommended
-                    {category !== 'all' ? ` for ${category}` : ''}
+                    {category !== "all" ? ` for ${category}` : ""}
                   </span>
                   <h2>
                     {recommendation.name}
                     {recommendation.landmark
                       ? ` — ${recommendation.landmark}`
-                      : ''}
+                      : ""}
                   </h2>
                   {recommendation.distance !== undefined &&
                   recommendation.walkTime !== undefined ? (
                     <p>
-                      {recommendation.distance} m away ·{' '}
+                      {recommendation.distance} m away ·{" "}
                       {recommendation.walkTime} min walk
                     </p>
                   ) : (
                     <p>
                       {recommendation.hasValidCoordinates
-                        ? 'Confirmed available bin'
-                        : 'Location not calibrated'}
+                        ? "Confirmed available bin"
+                        : "Location not calibrated"}
                     </p>
                   )}
-                  <strong>
-                    Station with a confirmed available option.
-                  </strong>
-                  <button
-                    onClick={() => setSelectedId(recommendation.id)}
-                  >
+                  <strong>Station with a confirmed available option.</strong>
+                  <button onClick={() => setSelectedId(recommendation.id)}>
                     {recommendation.hasValidCoordinates
-                      ? 'View on map'
-                      : 'Select station'}{' '}
+                      ? "View on map"
+                      : "Select station"}{" "}
                     <ArrowRight size={15} />
                   </button>
                 </article>
@@ -383,13 +396,13 @@ function LocatorContent() {
 
               {filtered.map((station) => {
                 const relevant =
-                  category === 'all'
+                  category === "all"
                     ? station.bins
                     : station.bins.filter((bin) => bin.category === category);
                 return (
                   <article
                     className={`station-card ${
-                      selected?.id === station.id ? 'selected' : ''
+                      selected?.id === station.id ? "selected" : ""
                     }`}
                     key={station.id}
                     onClick={() => setSelectedId(station.id)}
@@ -422,7 +435,7 @@ function LocatorContent() {
                       <span>
                         {station.walkTime !== undefined
                           ? `${station.walkTime} min walk · `
-                          : ''}
+                          : ""}
                         {station.bins.length} categories
                       </span>
                     </div>
@@ -435,9 +448,7 @@ function LocatorContent() {
                       ))}
                     </div>
                     <div className="station-actions">
-                      <Link href={`/stations/${station.id}`}>
-                        View details
-                      </Link>
+                      <Link href={`/stations/${station.id}`}>View details</Link>
                       {station.hasValidCoordinates && station.coordinates ? (
                         <a
                           href={`https://www.openstreetmap.org/directions?to=${station.coordinates[0]},${station.coordinates[1]}`}
@@ -466,8 +477,8 @@ function LocatorContent() {
                   <p>Clear your search or choose another category.</p>
                   <button
                     onClick={() => {
-                      setQuery('');
-                      changeCategory('all');
+                      setQuery("");
+                      changeCategory("all");
                     }}
                   >
                     Clear filters
@@ -477,7 +488,7 @@ function LocatorContent() {
             </div>
           </div>
 
-          <div className="map-panel">
+          <div className="map-panel min-h-[560px] lg:h-[calc(100vh-260px)] rounded-2xl overflow-hidden border border-[#DCE5DC]">
             <DynamicStationMap
               stations={filtered.length ? filtered : stations}
               selected={selected}
@@ -488,7 +499,7 @@ function LocatorContent() {
             <div className="map-demo-notice">
               {isStale
                 ? `Offline · Last updated ${fetchedAt}`
-                : 'Live station telemetry'}
+                : "Live station telemetry"}
             </div>
             {selected && (
               <div className="map-selected-preview">
@@ -499,7 +510,7 @@ function LocatorContent() {
                   <strong>{selected.name}</strong>
                   <small>
                     {!selected.hasValidCoordinates
-                      ? 'Location not calibrated'
+                      ? "Location not calibrated"
                       : selected.distance !== undefined
                         ? `${selected.distance} m away`
                         : `${availableCount(selected)} of ${selected.bins.length} bins available`}
