@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { StationLiveStatus, WasteCategory } from '@/components/types';
-import { OperationsCard } from '@/components/ui/operations-card';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { Button } from '@/components/ui/button';
-import { FillGauge } from '@/components/ui/fill-gauge';
+import React, { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { StationLiveStatus, WasteCategory } from "@/components/types";
+import { OperationsCard } from "@/components/ui/operations-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Button } from "@/components/ui/button";
+import { FillGauge } from "@/components/ui/fill-gauge";
 import {
   AlertOctagon,
   Trash2,
   Clock,
-  ShieldAlert,
   Info,
   Wrench,
   Sparkles,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface PriorityQueueProps {
   stations: StationLiveStatus[];
@@ -29,13 +29,87 @@ interface UrgentItem {
   updatedAt: string | null;
 }
 
-export function PriorityQueue({ stations }: PriorityQueueProps) {
-  const [selectedEmptyItem, setSelectedEmptyItem] = useState<UrgentItem | null>(null);
-  const [emptyNotes, setEmptyNotes] = useState('');
+export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
+  const [selectedEmptyItem, setSelectedEmptyItem] = useState<UrgentItem | null>(
+    null,
+  );
+  const [emptyNotes, setEmptyNotes] = useState("");
+  const [isEmptying, setIsEmptying] = useState(false);
+  const [emptyError, setEmptyError] = useState<string | null>(null);
+
+  const handleConfirmEmpty = async () => {
+    if (!selectedEmptyItem || isEmptying) return;
+    setIsEmptying(true);
+    setEmptyError(null);
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      let accessToken = session?.access_token;
+      if (!accessToken) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        accessToken = refreshed.session?.access_token;
+      }
+
+      if (!accessToken) {
+        throw new Error("Your session expired. Please sign in again.");
+      }
+
+      const payload = JSON.stringify({
+        station_id: selectedEmptyItem.station_id,
+        compartment: selectedEmptyItem.category,
+        notes: emptyNotes.trim() || null,
+      });
+
+      let res = await fetch("/api/bins/empty", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: payload,
+      });
+
+      if (res.status === 401) {
+        const { data: refreshed, error: refreshError } =
+          await supabase.auth.refreshSession();
+        const retryToken = refreshed.session?.access_token;
+        if (refreshError || !retryToken) {
+          throw new Error("Authentication expired. Please sign in again.");
+        }
+        res = await fetch("/api/bins/empty", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${retryToken}`,
+          },
+          body: payload,
+        });
+      }
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.detail || `Failed to empty bin (${res.status})`);
+      }
+
+      setSelectedEmptyItem(null);
+      setEmptyNotes("");
+      onRefresh?.();
+    } catch (err) {
+      setEmptyError(
+        err instanceof Error ? err.message : "Failed to empty bin.",
+      );
+    } finally {
+      setIsEmptying(false);
+    }
+  };
 
   // Derive individual compartment items with critical fill >= 85%
   const urgentItems: UrgentItem[] = [];
-  const categories: WasteCategory[] = ['plastic', 'paper', 'metal', 'general'];
+  const categories: WasteCategory[] = ["plastic", "paper", "metal", "general"];
 
   stations.forEach((st) => {
     categories.forEach((cat) => {
@@ -69,14 +143,16 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
                 Janitor Collection Priority Queue
               </h2>
               <p className="text-xs text-[#65736A]">
-                Sorted by fill percentage descending — immediate servicing required
+                Sorted by fill percentage descending — immediate servicing
+                required
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#FFF0EE] text-[#C84F49] border border-[#FADAD7] font-mono">
-              {urgentItems.length} Critical {urgentItems.length === 1 ? 'Bin' : 'Bins'} (≥85%)
+              {urgentItems.length} Critical{" "}
+              {urgentItems.length === 1 ? "Bin" : "Bins"} (≥85%)
             </span>
           </div>
         </div>
@@ -89,9 +165,12 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
             <div className="w-12 h-12 rounded-full bg-[#E9F3ED] text-[#176B45] flex items-center justify-center mx-auto">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h4 className="font-bold text-sm text-[#202A25] font-display">No Urgent Bins</h4>
+            <h4 className="font-bold text-sm text-[#202A25] font-display">
+              No Urgent Bins
+            </h4>
             <p className="text-xs text-[#65736A] max-w-sm mx-auto">
-              All monitored campus bins are currently operating below the critical 85% threshold.
+              All monitored campus bins are currently operating below the
+              critical 85% threshold.
             </p>
           </div>
         </OperationsCard>
@@ -123,14 +202,14 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
                 <div className="flex items-center gap-3 text-[11px] text-[#65736A] pt-1">
                   <span className="flex items-center gap-1 font-mono">
                     <Clock className="w-3 h-3 text-[#65736A]" />
-                    Telemetry reading:{' '}
+                    Telemetry reading:{" "}
                     {item.updatedAt
                       ? new Date(item.updatedAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
                         })
-                      : 'No reading'}
+                      : "No reading"}
                   </span>
                 </div>
               </div>
@@ -165,9 +244,12 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-[#176B45] shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong>Sensor Error vs. Fill Percentage:</strong> When a ToF sensor reports a hardware fault
-              or break-beam occlusion, the database records <code>operational_status = &apos;SENSOR_ERROR&apos;</code>.
-              Sensor errors are never displayed as 0% or 100% full to prevent false assumptions.
+              <strong>Sensor Error vs. Fill Percentage:</strong> When a ToF
+              sensor reports a hardware fault or break-beam occlusion, the
+              database records{" "}
+              <code>operational_status = &apos;SENSOR_ERROR&apos;</code>. Sensor
+              errors are never displayed as 0% or 100% full to prevent false
+              assumptions.
             </p>
           </div>
         </div>
@@ -195,11 +277,15 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
             <div className="p-3 rounded-xl bg-[#F7F8F4] border border-[#E1E8E1] space-y-1.5 text-xs text-[#202A25]">
               <div className="flex justify-between">
                 <span className="text-[#65736A]">Target Station:</span>
-                <span className="font-bold">{selectedEmptyItem.station_name}</span>
+                <span className="font-bold">
+                  {selectedEmptyItem.station_name}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#65736A]">Compartment:</span>
-                <span className="font-bold capitalize">{selectedEmptyItem.category}</span>
+                <span className="font-bold capitalize">
+                  {selectedEmptyItem.category}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#65736A]">Fill Before Emptying:</span>
@@ -209,17 +295,11 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
               </div>
             </div>
 
-            {/* Status Notice: Backend RPC Integration In Progress */}
-            <div className="p-3.5 rounded-xl bg-[#FFF6E4] border border-[#FDE8BF] text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-[#C48419]">
-                <ShieldAlert className="w-4 h-4 shrink-0 text-[#C48419]" />
-                <span>Backend RPC Integration In Progress</span>
+            {emptyError && (
+              <div className="p-3 rounded-xl bg-[#FFF0EE] border border-[#FADAD7] text-xs text-[#C84F49]">
+                {emptyError}
               </div>
-              <p className="leading-relaxed text-[11px] text-[#874B00]">
-                Emptying operations require an authenticated PostgreSQL RPC transaction to atomically update{' '}
-                <code>bin_status</code> and record <code>bin_emptying_events</code>. Database mutation controls are temporarily locked in the UI.
-              </p>
-            </div>
+            )}
 
             {/* Optional Notes */}
             <div>
@@ -231,8 +311,8 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
                 onChange={(e) => setEmptyNotes(e.target.value)}
                 placeholder="e.g., Replaced liner, cleaned ToF sensor lens"
                 rows={2}
-                disabled={true}
-                className="w-full px-3 py-2 text-xs border border-[#E1E8E1] rounded-lg bg-[#F7F8F4] text-[#65736A] cursor-not-allowed"
+                disabled={isEmptying}
+                className="w-full px-3 py-2 text-xs border border-[#E1E8E1] rounded-lg bg-white text-[#202A25] focus:outline-none focus:ring-2 focus:ring-[#176B45]/20 focus:border-[#176B45] disabled:bg-[#F7F8F4] disabled:cursor-not-allowed"
               />
             </div>
 
@@ -241,18 +321,21 @@ export function PriorityQueue({ stations }: PriorityQueueProps) {
               <Button
                 variant="secondary"
                 size="md"
-                onClick={() => setSelectedEmptyItem(null)}
+                disabled={isEmptying}
+                onClick={() => {
+                  setEmptyError(null);
+                  setSelectedEmptyItem(null);
+                }}
               >
                 Close
               </Button>
               <Button
                 variant="danger"
                 size="md"
-                disabled={true}
-                title="Backend RPC Integration In Progress"
-                className="opacity-50 cursor-not-allowed"
+                disabled={isEmptying}
+                onClick={handleConfirmEmpty}
               >
-                Confirm &amp; Empty Bin (Locked)
+                {isEmptying ? "Emptying..." : "Confirm Emptying Bins"}
               </Button>
             </div>
           </div>
