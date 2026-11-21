@@ -7,6 +7,7 @@ import { OperationsCard } from "@/components/ui/operations-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { FillGauge } from "@/components/ui/fill-gauge";
+import { SpringToast } from "@/components/motion/spring-primitives";
 import {
   AlertOctagon,
   Trash2,
@@ -36,6 +37,10 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
   const [emptyNotes, setEmptyNotes] = useState("");
   const [isEmptying, setIsEmptying] = useState(false);
   const [emptyError, setEmptyError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    variant: "success" | "error";
+  } | null>(null);
 
   const handleConfirmEmpty = async () => {
     if (!selectedEmptyItem || isEmptying) return;
@@ -95,26 +100,31 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
         throw new Error(body.detail || `Failed to empty bin (${res.status})`);
       }
 
+      const emptiedTarget = `${selectedEmptyItem.category} bin at ${selectedEmptyItem.station_name}`;
       setSelectedEmptyItem(null);
       setEmptyNotes("");
+      setToast({
+        message: `Emptied ${emptiedTarget} successfully.`,
+        variant: "success",
+      });
       onRefresh?.();
     } catch (err) {
-      setEmptyError(
-        err instanceof Error ? err.message : "Failed to empty bin.",
-      );
+      const msg = err instanceof Error ? err.message : "Failed to empty bin.";
+      setEmptyError(msg);
+      setToast({ message: msg, variant: "error" });
     } finally {
       setIsEmptying(false);
     }
   };
 
-  // Derive individual compartment items with critical fill >= 85%
+  // Derive individual compartment items needing emptying (>= 80% fill)
   const urgentItems: UrgentItem[] = [];
   const categories: WasteCategory[] = ["plastic", "paper", "metal", "general"];
 
   stations.forEach((st) => {
     categories.forEach((cat) => {
       const fill = st.fill_levels[cat];
-      if (fill !== null && fill !== undefined && fill >= 85) {
+      if (fill !== null && fill !== undefined && fill >= 80) {
         urgentItems.push({
           station_id: st.station_id,
           station_name: st.name,
@@ -151,8 +161,8 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#FFF0EE] text-[#C84F49] border border-[#FADAD7] font-mono">
-              {urgentItems.length} Critical{" "}
-              {urgentItems.length === 1 ? "Bin" : "Bins"} (≥85%)
+              {urgentItems.length} Urgent{" "}
+              {urgentItems.length === 1 ? "Bin" : "Bins"} (≥80%)
             </span>
           </div>
         </div>
@@ -219,6 +229,7 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
                 <Button
                   variant="danger"
                   size="md"
+                  className="min-h-[44px]"
                   onClick={() => setSelectedEmptyItem(item)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -321,6 +332,7 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
               <Button
                 variant="secondary"
                 size="md"
+                className="min-h-[44px]"
                 disabled={isEmptying}
                 onClick={() => {
                   setEmptyError(null);
@@ -332,6 +344,7 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
               <Button
                 variant="danger"
                 size="md"
+                className="min-h-[44px]"
                 disabled={isEmptying}
                 onClick={handleConfirmEmpty}
               >
@@ -341,6 +354,12 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
           </div>
         </div>
       )}
+
+      <SpringToast
+        message={toast?.message ?? null}
+        variant={toast?.variant ?? "success"}
+        onDismiss={() => setToast(null)}
+      />
     </div>
   );
 }
