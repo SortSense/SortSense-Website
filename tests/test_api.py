@@ -919,6 +919,45 @@ class _FakeRpcCall:
         self._store = store
 
     def execute(self):
+        if self._fn_name == "staff_empty_bins":
+            profile = self._store.get("profiles") or {}
+            role = str(profile.get("role") or "").upper()
+            if not profile.get("is_active") or role not in ("ADMIN", "JANITOR"):
+                raise RuntimeError("42501 Active ADMIN or JANITOR role required to empty bins")
+            station_code = self._params["p_station_code"]
+            compartment = self._params.get("p_compartment", "all")
+            notes = self._params.get("p_notes")
+            st = next((s for s in self._store.get("stations", []) if s.get("station_code") == station_code), None)
+            if not st:
+                raise RuntimeError(f"P0002 Station {station_code} not found")
+
+            cats_by_id = {c["category_id"]: c["category_name"].lower() for c in self._store.get("waste_categories", [])}
+            emptied = 0
+            now_iso = "2026-11-21T14:55:00+00:00"
+            for b in self._store.get("bins", []):
+                if b.get("station_id") != st["station_id"] or not b.get("is_active", True):
+                    continue
+                cname = cats_by_id.get(b.get("category_id"), "")
+                if compartment != "all" and not cname.startswith(compartment):
+                    continue
+                bs = next((s for s in self._store.setdefault("bin_status", []) if s.get("bin_id") == b["bin_id"]), None)
+                before_fill = bs.get("fill_percentage") if bs else None
+                self._store.setdefault("bin_emptying_events", []).append({
+                    "bin_id": b["bin_id"],
+                    "emptied_by": profile.get("user_id"),
+                    "fill_percentage_before": before_fill,
+                    "emptied_at": now_iso,
+                    "notes": notes,
+                })
+                if bs:
+                    bs.update({"fill_percentage": 0.0, "operational_status": "NORMAL", "measured_at": now_iso, "updated_at": now_iso})
+                else:
+                    self._store["bin_status"].append({"bin_id": b["bin_id"], "fill_percentage": 0.0, "operational_status": "NORMAL", "measured_at": now_iso, "updated_at": now_iso})
+                emptied += 1
+
+            if emptied == 0:
+                raise RuntimeError(f"P0002 No active {compartment} bins found for station {station_code}")
+            return SimpleNamespace(data=[{"station_code": station_code, "compartment": compartment, "emptied_count": emptied, "emptied_at": now_iso}])
         if self._fn_name == "ingest_waste_drop_event":
             if "drop_events" in self._store.get("fail_on_insert", ()):
                 raise RuntimeError("Simulated insert failure on drop_events")
@@ -1829,3 +1868,56 @@ class TestHardwareFillLevelsIntegration:
             json={"readings": [{"bin_id": "bin-pl-1", "fill_percentage": 10.0}]},
         )
         assert r_sim.status_code == 409
+
+
+class TestStaffBinEmptyingLiveMode:
+    """Tests for POST /api/bins/empty with ADMIN and JANITOR roles in live mode."""
+
+    @pytest.mark.parametrize("role", ["ADMIN", "JANITOR"])
+    def test_admin_and_janitor_can_empty_bins(self, monkeypatch, role):
+        monkeypatch.setattr(db, "use_fixtures", False)
+        store = TestHardwareWasteDropIntegration()._make_store()
+        store["profiles"] = {"user_id": f"staff-{role.lower()}", "role": role, "is_active": True}
+        store["bin_status"] = [
+            {"bin_id": "bin-pl-1", "fill_percentage": 92.0, "operational_status": "NORMAL"},
+        ]
+        store["bin_emptying_events"] = []
+        fake = _MutableFakeSupabase(store)
+        monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+
+        # Unauthenticated rejected
+        assert client.post(
+            "/api/bins/empty",
+            json={"station_id": "NTHU-SHUIMU", "compartment": "plastic"},
+        ).status_code == 401
+
+        # Authenticated ADMIN or JANITOR succeeds
+        res = client.post(
+            "/api/bins/empty",
+            headers={"Authorization": "Bearer valid-jwt"},
+            json={"station_id": "NTHU-SHUIMU", "compartment": "plastic", "notes": "Replaced liner"},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["status"] == "emptied"
+        assert body["emptied_count"] == 1
+        assert store["bin_status"][0]["fill_percentage"] == 0.0
+        assert len(store["bin_emptying_events"]) == 1
+        assert store["bin_emptying_events"][0]["fill_percentage_before"] == 92.0
+        assert store["bin_emptying_events"][0]["notes"] == "Replaced liner"
+
+    def test_non_staff_role_rejected_from_emptying(self, monkeypatch):
+        monkeypatch.setattr(db, "use_fixtures", False)
+        store = TestHardwareWasteDropIntegration()._make_store()
+        store["profiles"] = {"user_id": "guest-1", "role": "STUDENT", "is_active": True}
+        fake = _MutableFakeSupabase(store)
+        monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+
+        res = client.post(
+            "/api/bins/empty",
+            headers={"Authorization": "Bearer valid-jwt"},
+            json={"station_id": "NTHU-SHUIMU", "compartment": "plastic"},
+        )
+        assert res.status_code == 403
