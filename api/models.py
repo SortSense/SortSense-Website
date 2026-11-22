@@ -125,6 +125,7 @@ class StationLiveStatus(BaseModel):
     name: str
     location_name: Optional[str] = None
     description: Optional[str] = None
+    image_url: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_online: bool
@@ -142,6 +143,10 @@ class StationLiveStatus(BaseModel):
 class LiveStatusResponse(BaseModel):
     """Response returned by GET /api/dashboard/live-status."""
     stations: List[StationLiveStatus]
+    total_active_stations: int = 0
+    total_waste_categories: int = 0
+    total_monitored_compartments: int = 0
+    total_drop_events: Optional[int] = None
 
 
 class CategoryBreakdown(BaseModel):
@@ -188,11 +193,20 @@ class StationCreatePayload(BaseModel):
     station_name: str = Field(..., min_length=1, max_length=120)
     location_name: str = Field(..., min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=500)
+    image_url: Optional[str] = Field(default=None, max_length=2048)
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
     is_active: bool = True
     floors: Optional[List[FloorCreateItem]] = None
     bins: Optional[List[BinCreateItem]] = None
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def normalize_create_image_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned or None
 
     @model_validator(mode="after")
     def validate_coordinates_and_hierarchy(self):
@@ -237,12 +251,21 @@ class StationUpdatePayload(BaseModel):
     station_name: str = Field(..., min_length=1, max_length=120)
     location_name: str = Field(..., min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=500)
+    image_url: Optional[str] = Field(default=None, max_length=2048)
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
     is_active: bool = True
     floors: Optional[List[FloorUpdateItem]] = None
     bins: Optional[List[BinUpdateItem]] = None
     delete_bin_ids: List[str] = Field(default_factory=list)
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def normalize_update_image_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned or None
 
     @model_validator(mode="after")
     def validate_coordinates_pair(self):
