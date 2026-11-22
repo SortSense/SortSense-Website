@@ -242,13 +242,13 @@ export default function HomePage() {
 
     const wasteCategoriesCount =
       typeof liveData?.total_waste_categories === "number" &&
-      liveData.total_waste_categories > 0
+        liveData.total_waste_categories > 0
         ? liveData.total_waste_categories
         : derivedCategories.size;
 
     const monitoredCompartmentsCount =
       typeof liveData?.total_monitored_compartments === "number" &&
-      liveData.total_monitored_compartments > 0
+        liveData.total_monitored_compartments > 0
         ? liveData.total_monitored_compartments
         : derivedCompartments;
 
@@ -288,17 +288,20 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* PART A: HERO SECTION WITH REAL STATION PHOTO & LIVE CARD     */}
         {/* ============================================================ */}
-        <section className="renew-hero page-width" aria-label="Introduction">
+        <section
+          className="renew-hero page-width pt-4 pb-6 lg:pt-6 lg:pb-8"
+          aria-label="Introduction"
+        >
           <div className="renew-hero-bg-accent" aria-hidden="true">
             <svg
-              className="hero-leaf-motif"
+              className="h-full w-full"
               viewBox="0 0 400 400"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
               <path
                 d="M360 40C240 40 80 180 80 320C80 360 120 400 160 400C300 400 360 200 360 40Z"
-                fill="rgba(23, 107, 69, 0.035)"
+                fill="rgba(20, 83, 45, 0.035)"
               />
               <path
                 d="M360 40C250 150 160 280 160 400"
@@ -309,96 +312,126 @@ export default function HomePage() {
             </svg>
           </div>
 
-          <div className="renew-hero-copy">
-            <span className="renew-kicker">
-              <i /> Smarter Sorting. Better Choices.
-            </span>
-            <h1>
-              Every waste
-              <br />
-              has its <em>place.</em>
-            </h1>
-            <p>
-              One clear system for knowing what goes where—and where to find the
-              right bin nearby on campus.
-            </p>
-            <div className="renew-actions">
-              <Link
-                className="button button-primary button-large hero-primary-cta"
-                href="/find-bin"
-              >
-                <span>Find a Bin</span>
-                <ArrowRight size={18} className="cta-arrow-icon" />
-              </Link>
-              <a className="renew-text-action" href="#process">
-                <span>See how it works</span>
-                <ArrowDown size={16} />
-              </a>
-            </div>
-            <div className="renew-microcopy">
-              <span>
-                <Check size={13} /> No account needed
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            {/* Left Column: Compact Typography & CTAs */}
+            <div className="lg:col-span-6">
+              <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-wider uppercase text-[#14532D]">
+                <span className="h-[2px] w-4 rounded-full bg-[#14532D]" />
+                Smarter Sorting. Better Choices.
               </span>
-              <span>
-                <Check size={13} /> Public campus access
-              </span>
-              <span>
-                <Check size={13} /> Live bin telemetry
-              </span>
-            </div>
-          </div>
 
-          <div className="renew-hero-media">
-            <img
-              src={heroImageSrc}
-              onError={() => {
-                if (primaryRawStation?.image_url) {
-                  setFailedImgUrl(primaryRawStation.image_url);
-                }
-              }}
-              alt={
-                primaryRawStation
-                  ? `${primaryRawStation.name} campus recycling station`
-                  : "SortSense campus smart sorting station"
-              }
-              loading="eager"
-            />
-            <div className="media-scrim" />
+              <h1 className="mt-3 font-jakarta text-4xl sm:text-[44px] lg:text-[50px] font-extrabold leading-[1.08] tracking-tight text-[#14231B]">
+                Every waste
+                <br />
+                has its <span className="text-[#2E8A57]">place.</span>
+              </h1>
 
-            <div className="hero-live-card">
-              <span className="live-card-icon" aria-hidden="true">
-                <MapPin size={19} />
-              </span>
-              <div className="min-w-0">
-                <small>NEAREST STATION</small>
-                <strong className="truncate">
-                  {primaryRawStation
-                    ? primaryRawStation.name
-                    : "Campus Station"}
-                </strong>
-                <span className="truncate">{heroAvailabilitySummary}</span>
+              <p className="mt-4 text-sm sm:text-[15px] text-[#5B6B62] leading-relaxed max-w-md">
+                One clear system for knowing what goes where—and where to find
+                the right bin nearby on campus.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <Link
+                  href="/find-bin"
+                  className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-full bg-[#14532D] hover:bg-[#0F3F22] text-white text-xs sm:text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                >
+                  <span>Find a Bin</span>
+                  <ArrowRight size={15} />
+                </Link>
+                <a
+                  href="#process"
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[#14532D] hover:text-[#0F3F22] px-2.5 py-1.5 rounded-full hover:bg-[#EAF3ED]/70 transition-colors"
+                >
+                  <span>See how it works</span>
+                  <ArrowDown size={14} />
+                </a>
               </div>
-              <Link
-                href={
-                  primaryRawStation
-                    ? `/stations/${encodeURIComponent(primaryRawStation.station_id)}`
-                    : "/find-bin"
-                }
-                className="hero-live-card-link"
-                aria-label={
-                  primaryRawStation
-                    ? `Inspect live station details for ${primaryRawStation.name}`
-                    : "Open the campus bin locator"
-                }
-              >
-                <ArrowRight size={16} />
-              </Link>
+
+              <div className="mt-5 flex flex-wrap items-center gap-4 text-xs font-medium text-[#5E6E65]">
+                <span className="inline-flex items-center gap-1.5">
+                  <Check size={13} className="text-[#2E8A57]" />
+                  No account needed
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Check size={13} className="text-[#2E8A57]" />
+                  Public campus access
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Check size={13} className="text-[#2E8A57]" />
+                  Live bin telemetry
+                </span>
+              </div>
             </div>
 
-            <div className="hero-scan-chip">
-              <span className="sensor-live-dot" aria-hidden="true" />
-              <Signal size={14} />
-              <span>Live Campus Telemetry</span>
+            {/* Right Column: Constrained Visual Station Card & Floating Overlays */}
+            <div className="lg:col-span-6">
+              <div className="relative h-[340px] sm:h-[380px] lg:h-[410px] w-full rounded-2xl overflow-hidden bg-[#DCE6DC] border border-black/5 shadow-[0_18px_42px_rgba(15,52,38,0.11)]">
+                <img
+                  src={heroImageSrc}
+                  onError={() => {
+                    if (primaryRawStation?.image_url) {
+                      setFailedImgUrl(primaryRawStation.image_url);
+                    }
+                  }}
+                  alt={
+                    primaryRawStation
+                      ? `${primaryRawStation.name} campus recycling station`
+                      : "SortSense campus smart sorting station"
+                  }
+                  loading="eager"
+                  className="w-full h-full object-cover"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0A3022]/55 via-transparent to-transparent" />
+
+                {/* Top-Right Compact Telemetry Pill */}
+                <div className="absolute top-3.5 right-3.5 inline-flex items-center gap-1.5 rounded-full bg-[#D8ED8F] px-3 py-1 text-[11px] font-bold text-[#0F3F22] shadow-sm">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-[#14532D] animate-pulse"
+                    aria-hidden="true"
+                  />
+                  <Signal size={12} />
+                  <span>Live Campus Telemetry</span>
+                </div>
+
+                {/* Bottom Floating Compact Nearest Station Card */}
+                <div className="absolute bottom-3.5 left-3.5 right-3.5 sm:right-auto sm:min-w-[290px] sm:max-w-[360px] rounded-xl bg-white/95 backdrop-blur-md border border-black/8 p-3 shadow-lg flex items-center gap-3">
+                  <span
+                    className="h-9 w-9 rounded-lg bg-[#14532D] text-white flex items-center justify-center shrink-0"
+                    aria-hidden="true"
+                  >
+                    <MapPin size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <small className="block text-[10px] font-bold uppercase tracking-wider text-[#65736A]">
+                      NEAREST STATION
+                    </small>
+                    <strong className="block font-jakarta text-sm font-semibold text-[#14231B] truncate leading-snug">
+                      {primaryRawStation
+                        ? primaryRawStation.name
+                        : "Campus Station"}
+                    </strong>
+                    <span className="block text-[11px] font-medium text-[#14532D] truncate">
+                      {heroAvailabilitySummary}
+                    </span>
+                  </div>
+                  <Link
+                    href={
+                      primaryRawStation
+                        ? `/stations/${encodeURIComponent(primaryRawStation.station_id)}`
+                        : "/find-bin"
+                    }
+                    className="h-8 w-8 rounded-lg bg-[#EEF5F0] hover:bg-[#14532D] text-[#14532D] hover:text-white border border-[#DCE6DF] flex items-center justify-center shrink-0 transition-colors"
+                    aria-label={
+                      primaryRawStation
+                        ? `Inspect live station details for ${primaryRawStation.name}`
+                        : "Open the campus bin locator"
+                    }
+                  >
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -482,26 +515,23 @@ export default function HomePage() {
                     aria-selected={isSelected}
                     aria-controls={`panel-${step.id}`}
                     onClick={() => setActiveStepIndex(idx)}
-                    className={`flex-1 flex items-center gap-4 w-full text-left rounded-2xl border px-5 py-5 transition-all cursor-pointer ${
-                      isSelected
+                    className={`flex-1 flex items-center gap-4 w-full text-left rounded-2xl border px-5 py-5 transition-all cursor-pointer ${isSelected
                         ? "bg-white border-[#14532D] shadow-[0_8px_24px_rgba(20,83,45,0.09)] ring-1 ring-[#14532D]/10"
                         : "bg-white border-[#E1E8E1] hover:border-[#A9C9B6] hover:bg-[#FCFDFC]"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3 shrink-0">
                       <span
-                        className={`font-jakarta text-lg font-extrabold ${
-                          isSelected ? "text-[#14532D]" : "text-[#A4B4AB]"
-                        }`}
+                        className={`font-jakarta text-lg font-extrabold ${isSelected ? "text-[#14532D]" : "text-[#A4B4AB]"
+                          }`}
                       >
                         {step.stepNumber}
                       </span>
                       <span
-                        className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${
-                          isSelected
+                        className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${isSelected
                             ? "bg-[#14532D] text-white"
                             : "bg-[#EEF5F1] text-[#14532D]"
-                        }`}
+                          }`}
                       >
                         <Icon size={18} />
                       </span>
@@ -521,11 +551,10 @@ export default function HomePage() {
 
                     <ChevronRight
                       size={18}
-                      className={`shrink-0 transition-transform ${
-                        isSelected
+                      className={`shrink-0 transition-transform ${isSelected
                           ? "text-[#14532D] translate-x-0.5"
                           : "text-[#A4B4AB]"
-                      }`}
+                        }`}
                     />
                   </button>
                 );
@@ -933,18 +962,16 @@ export default function HomePage() {
                     aria-selected={isSelected}
                     aria-controls={`cat-panel-${category.slug}`}
                     onClick={() => handleSelectCategory(category.slug)}
-                    className={`relative flex-1 flex items-center gap-3.5 py-3.5 px-5 text-sm text-left transition-colors cursor-pointer ${
-                      isSelected
+                    className={`relative flex-1 flex items-center gap-3.5 py-3.5 px-5 text-sm text-left transition-colors cursor-pointer ${isSelected
                         ? "bg-[#14532D] text-white"
                         : "bg-transparent text-[#1A2620] hover:bg-[#F1F6F2]"
-                    }`}
+                      }`}
                   >
                     {/* Active Indicator Bar */}
                     <span
                       aria-hidden="true"
-                      className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full transition-opacity ${
-                        isSelected ? "opacity-100" : "opacity-0"
-                      }`}
+                      className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full transition-opacity ${isSelected ? "opacity-100" : "opacity-0"
+                        }`}
                       style={{
                         backgroundColor: isSelected
                           ? "#D8ED8F"
@@ -953,17 +980,15 @@ export default function HomePage() {
                     />
 
                     <span
-                      className={`font-mono text-xs font-bold ${
-                        isSelected ? "text-[#D8ED8F]" : "text-[#8D9D93]"
-                      }`}
+                      className={`font-mono text-xs font-bold ${isSelected ? "text-[#D8ED8F]" : "text-[#8D9D93]"
+                        }`}
                     >
                       0{index + 1}
                     </span>
 
                     <span
-                      className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                        isSelected ? "ring-2 ring-white/40" : ""
-                      }`}
+                      className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? "ring-2 ring-white/40" : ""
+                        }`}
                       style={{ backgroundColor: category.color }}
                     />
 
@@ -972,9 +997,8 @@ export default function HomePage() {
                         {category.name}
                       </strong>
                       <span
-                        className={`block text-[11px] truncate ${
-                          isSelected ? "text-[#CBE0D4]" : "text-[#6B7A71]"
-                        }`}
+                        className={`block text-[11px] truncate ${isSelected ? "text-[#CBE0D4]" : "text-[#6B7A71]"
+                          }`}
                       >
                         {category.shortDescription}
                       </span>
@@ -982,11 +1006,10 @@ export default function HomePage() {
 
                     <ArrowRight
                       size={15}
-                      className={`shrink-0 transition-transform ${
-                        isSelected
+                      className={`shrink-0 transition-transform ${isSelected
                           ? "text-white translate-x-0.5"
                           : "text-[#9AB0A2]"
-                      }`}
+                        }`}
                     />
                   </button>
                 );
