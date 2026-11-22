@@ -42,6 +42,7 @@ export interface StationLiveStatus {
   name: string;
   location_name?: string | null;
   description?: string | null;
+  image_url?: string | null;
   latitude: number | null;
   longitude: number | null;
   is_online: boolean;
@@ -58,6 +59,10 @@ export interface StationLiveStatus {
 
 export interface LiveStatusResponse {
   stations: StationLiveStatus[];
+  total_active_stations?: number;
+  total_waste_categories?: number;
+  total_monitored_compartments?: number;
+  total_drop_events?: number | null;
 }
 
 export interface CategoryBreakdown {

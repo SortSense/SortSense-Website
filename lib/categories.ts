@@ -36,6 +36,7 @@ export interface Station {
   name: string;
   landmark?: string;
   description?: string;
+  imageUrl?: string | null;
   accessibility?: string;
   coordinates: [number, number] | null;
   distance?: number;

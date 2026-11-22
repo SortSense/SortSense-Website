@@ -425,7 +425,13 @@ class TestSupabaseReadIntegration:
 
         status_res = client.get("/api/dashboard/live-status")
         assert status_res.status_code == 200
-        assert status_res.json() == {"stations": []}
+        assert status_res.json() == {
+            "stations": [],
+            "total_active_stations": 0,
+            "total_waste_categories": 0,
+            "total_monitored_compartments": 0,
+            "total_drop_events": None,
+        }
 
         headers = {"Authorization": "Bearer valid-jwt"}
         analytics_res = client.get("/api/dashboard/analytics", headers=headers)
@@ -1474,7 +1480,8 @@ class TestAdminStationManagement:
 
         res = client.get("/api/dashboard/live-status")
         assert res.status_code == 200
-        stations = res.json()["stations"]
+        body = res.json()
+        stations = body["stations"]
         assert len(stations) == 1
         st = stations[0]
         assert st["station_id"] == "ST-LIVE"
@@ -1484,6 +1491,59 @@ class TestAdminStationManagement:
         assert st["floors"][0]["disposal_areas"][0]["area_name"] == "Main Entrance"
         assert len(st["floors"][0]["disposal_areas"][0]["bins"]) == 1
         assert st["floors"][0]["disposal_areas"][0]["bins"][0]["category_name"] == "Plastic"
+        assert body["total_active_stations"] == 1
+        assert body["total_waste_categories"] == 1
+        assert body["total_monitored_compartments"] == 1
+
+    def test_admin_station_image_url_persists_and_exposes_in_live_status(self, monkeypatch):
+        monkeypatch.setattr(db, "use_fixtures", False)
+        store = self._make_store(role="ADMIN")
+        fake = _MutableFakeSupabase(store)
+        monkeypatch.setattr(db, "client", fake)
+        monkeypatch.setattr(db, "_create_user_client", lambda _t: fake)
+        hdr = {"Authorization": "Bearer valid-jwt"}
+
+        photo_url = "https://example.supabase.co/storage/v1/object/public/station-photos/nthu-shuimu/front.jpg"
+        create_res = client.post(
+            "/api/admin/stations",
+            headers=hdr,
+            json={
+                "station_code": "NTHU-PHOTO-1",
+                "station_name": "水木中心",
+                "location_name": "NTHU Main Campus",
+                "image_url": photo_url,
+                "latitude": 24.7924,
+                "longitude": 120.9941,
+                "bins": [
+                    {"category_id": "cat-pl", "capacity_liters": 60},
+                    {"category_id": "cat-pa", "capacity_liters": 60},
+                ],
+            },
+        )
+        assert create_res.status_code == 201
+        created = create_res.json()["station"]
+        assert created["image_url"] == photo_url
+
+        live_res = client.get("/api/dashboard/live-status")
+        assert live_res.status_code == 200
+        live_body = live_res.json()
+        assert live_body["stations"][0]["image_url"] == photo_url
+        assert live_body["total_active_stations"] == 1
+        assert live_body["total_waste_categories"] == 2
+        assert live_body["total_monitored_compartments"] == 2
+
+        # Clearing image_url via PATCH sets it back to None
+        patch_res = client.patch(
+            "/api/admin/stations/NTHU-PHOTO-1",
+            headers=hdr,
+            json={
+                "station_name": "水木中心",
+                "location_name": "NTHU Main Campus",
+                "image_url": None,
+            },
+        )
+        assert patch_res.status_code == 200
+        assert patch_res.json()["station"]["image_url"] is None
 
 
 class TestAdminBinTelemetrySimulation:

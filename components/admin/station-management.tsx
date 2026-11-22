@@ -1,15 +1,23 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
+  removeStationPhotoFromStorage,
+  uploadStationPhoto,
+  validateStationPhotoFile,
+} from "@/lib/station-photo-storage";
+import {
   Building2,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Edit3,
   ExternalLink,
+  ImagePlus,
   Layers,
   Loader2,
   MapPin,
@@ -17,6 +25,7 @@ import {
   Plus,
   RefreshCw,
   Trash2,
+  UploadCloud,
   X,
   AlertCircle,
 } from "lucide-react";
@@ -58,6 +67,7 @@ interface AdminStation {
   station_uuid: string;
   station_code: string;
   station_name: string;
+  image_url?: string | null;
   is_active: boolean;
   location_id: string | null;
   location_name: string;
@@ -101,6 +111,7 @@ interface StationFormState {
   station_name: string;
   location_name: string;
   description: string;
+  image_url: string | null;
   latitude: string;
   longitude: string;
   is_active: boolean;
@@ -120,6 +131,7 @@ function makeDefaultForm(categories: WasteCategory[]): StationFormState {
     station_name: "",
     location_name: "",
     description: "",
+    image_url: null,
     latitude: "",
     longitude: "",
     is_active: true,
@@ -161,6 +173,7 @@ function stationToForm(station: AdminStation): StationFormState {
     station_name: station.station_name,
     location_name: station.location_name || "",
     description: station.description || "",
+    image_url: station.image_url ?? null,
     latitude: station.latitude !== null && station.latitude !== undefined ? String(station.latitude) : "",
     longitude: station.longitude !== null && station.longitude !== undefined ? String(station.longitude) : "",
     is_active: station.is_active,
@@ -207,6 +220,9 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [collapsedFloors, setCollapsedFloors] = useState<Record<string, boolean>>({});
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient();
@@ -278,6 +294,7 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
     setEditingCode(null);
     setForm(makeDefaultForm(categories));
     setFormError(null);
+    setPhotoError(null);
     setCollapsedFloors({});
   };
 
@@ -286,14 +303,61 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
     setEditingCode(station.station_code);
     setForm(stationToForm(station));
     setFormError(null);
+    setPhotoError(null);
     setCollapsedFloors({});
   };
 
   const closeModal = () => {
-    if (submitting) return;
+    if (submitting || uploadingPhoto) return;
     setModalMode(null);
     setEditingCode(null);
     setFormError(null);
+    setPhotoError(null);
+  };
+
+  const handlePhotoFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    // Reset input value so re-selecting the same file still triggers onChange
+    event.target.value = "";
+    if (!file) return;
+
+    setPhotoError(null);
+    const check = validateStationPhotoFile(file);
+    if (!check.valid) {
+      setPhotoError(check.error || "Invalid image file.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const previousUrl = form.image_url;
+      const stationSlug =
+        form.station_code.trim() || editingCode || "campus-station";
+      const { publicUrl } = await uploadStationPhoto(file, stationSlug);
+      setForm((prev) => ({ ...prev, image_url: publicUrl }));
+      if (previousUrl && previousUrl !== publicUrl) {
+        void removeStationPhotoFromStorage(previousUrl);
+      }
+    } catch (err) {
+      setPhotoError(
+        err instanceof Error
+          ? err.message
+          : "Failed to upload photo to station-photos bucket.",
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    const previousUrl = form.image_url;
+    setForm((prev) => ({ ...prev, image_url: null }));
+    setPhotoError(null);
+    if (previousUrl) {
+      void removeStationPhotoFromStorage(previousUrl);
+    }
   };
 
   const areaOptions = useMemo(() => {
@@ -614,6 +678,7 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
             station_name: name,
             location_name: locName,
             description: form.description.trim() || null,
+            image_url: form.image_url,
             latitude,
             longitude,
             is_active: form.is_active,
@@ -623,6 +688,7 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
             station_name: name,
             location_name: locName,
             description: form.description.trim() || null,
+            image_url: form.image_url,
             latitude,
             longitude,
             is_active: form.is_active,
@@ -751,11 +817,29 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
                   return (
                     <tr key={st.station_uuid} className="hover:bg-[#F9FAFB]/60">
                       <td className="px-5 py-4">
-                        <div className="font-semibold text-[#111827]">
-                          {st.station_name}
-                        </div>
-                        <div className="text-xs font-mono text-[#6B7280]">
-                          {st.station_code}
+                        <div className="flex items-center gap-3">
+                          {st.image_url ? (
+                            <img
+                              src={st.image_url}
+                              alt={`${st.station_name} location photo`}
+                              className="h-10 w-14 rounded-lg object-cover border border-[#E5E7EB] shrink-0"
+                            />
+                          ) : (
+                            <div
+                              title="No station photo uploaded yet"
+                              className="h-10 w-14 rounded-lg bg-[#F3F6F3] border border-dashed border-[#D1DDD3] flex items-center justify-center text-[#8B9A91] shrink-0"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-[#111827]">
+                              {st.station_name}
+                            </div>
+                            <div className="text-xs font-mono text-[#6B7280]">
+                              {st.station_code}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-4">
@@ -950,6 +1034,106 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
                     placeholder="Optional notes about the building or station"
                     className="w-full rounded-xl border border-[#D1D5DB] px-3 py-2 text-sm"
                   />
+                </div>
+
+                {/* Station Location Photo Upload (Supabase Storage `station-photos`) */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+                      Station Location Photo
+                    </label>
+                    <span className="text-[11px] text-[#6B7280]">
+                      .jpg, .png, or .webp · max 5 MB
+                    </span>
+                  </div>
+
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    onChange={handlePhotoFileChange}
+                    className="hidden"
+                  />
+
+                  {photoError && (
+                    <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#991B1B]">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>{photoError}</span>
+                    </div>
+                  )}
+
+                  {form.image_url ? (
+                    <div className="rounded-2xl border border-[#D8E3DA] bg-[#F8FAF8] p-3 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <div className="relative h-32 w-full sm:w-52 rounded-xl overflow-hidden border border-[#DCE5DC] bg-white shrink-0">
+                        <img
+                          src={form.image_url}
+                          alt="Station location preview"
+                          className="h-full w-full object-cover"
+                        />
+                        {uploadingPhoto && (
+                          <div className="absolute inset-0 bg-black/45 flex items-center justify-center gap-1.5 text-xs font-semibold text-white">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Uploading…
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[#14532D]">
+                          <CheckCircle2 className="h-4 w-4 text-[#16A34A] shrink-0" />
+                          <span>Photo ready — displayed on homepage hero &amp; locator</span>
+                        </div>
+                        <p className="text-[11px] font-mono text-[#6B7280] truncate">
+                          {form.image_url}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            disabled={uploadingPhoto}
+                            onClick={() => photoInputRef.current?.click()}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#C8D8CE] bg-white px-3 py-1.5 text-xs font-semibold text-[#14532D] hover:bg-[#F0F7F2] disabled:opacity-60"
+                          >
+                            <UploadCloud className="h-3.5 w-3.5" />
+                            Replace Photo
+                          </button>
+                          <button
+                            type="button"
+                            disabled={uploadingPhoto}
+                            onClick={handleRemovePhoto}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#FADAD7] bg-[#FFF5F4] px-3 py-1.5 text-xs font-semibold text-[#B93832] hover:bg-[#FEE8E6] disabled:opacity-60"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove Photo
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={uploadingPhoto}
+                      onClick={() => photoInputRef.current?.click()}
+                      className="w-full rounded-2xl border-2 border-dashed border-[#CBD9CF] bg-[#F8FAF8] hover:border-[#14532D] hover:bg-[#F1F7F3] px-4 py-6 text-center transition-colors flex flex-col items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      <div className="h-10 w-10 rounded-xl bg-[#EAF3ED] text-[#14532D] flex items-center justify-center">
+                        {uploadingPhoto ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ImagePlus className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-bold text-[#1A2620]">
+                          {uploadingPhoto
+                            ? "Uploading to station-photos…"
+                            : "Click to upload a real campus station photo"}
+                        </p>
+                        <p className="text-[11px] text-[#65736A]">
+                          Automatically uploaded to Supabase Storage (station-photos) and saved to stations.image_url
+                        </p>
+                      </div>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1278,18 +1462,24 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
                 <button
                   type="button"
                   onClick={closeModal}
-                  disabled={submitting}
+                  disabled={submitting || uploadingPhoto}
                   className="rounded-xl border border-[#D1D5DB] bg-white px-4 py-2 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || uploadingPhoto}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#176B45] px-5 py-2 text-sm font-semibold text-white hover:bg-[#125637] disabled:opacity-60"
                 >
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {modalMode === "create" ? "Create Station" : "Save Changes"}
+                  {(submitting || uploadingPhoto) && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  {uploadingPhoto
+                    ? "Uploading Photo…"
+                    : modalMode === "create"
+                      ? "Create Station"
+                      : "Save Changes"}
                 </button>
               </div>
             </form>

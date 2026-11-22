@@ -838,42 +838,62 @@ class DatabaseManager:
                 "Supabase client is not configured. Check NEXT_PUBLIC_SUPABASE_URL and key settings."
             )
 
-        base_select = (
-            "station_id, station_code, station_name, is_active, location_id, "
-            "locations(location_name, description, latitude, longitude, is_active), "
-            "floors(floor_id, floor_name, floor_order, is_active, "
-            "disposal_areas(area_id, area_name, description, is_active, "
-            "bins(bin_id, category_id, capacity_liters, is_active, "
-            "waste_categories(category_name), "
-        )
+        def _build_live_select(include_image_url: bool, include_reading_source: bool) -> str:
+            station_cols = (
+                "station_id, station_code, station_name, image_url, is_active, location_id, "
+                if include_image_url
+                else "station_id, station_code, station_name, is_active, location_id, "
+            )
+            bin_status_cols = (
+                "bin_status(fill_percentage, operational_status, reading_source, updated_at, measured_at)"
+                if include_reading_source
+                else "bin_status(fill_percentage, operational_status, updated_at, measured_at)"
+            )
+            return (
+                station_cols
+                + "locations(location_name, description, latitude, longitude, is_active), "
+                + "floors(floor_id, floor_name, floor_order, is_active, "
+                + "disposal_areas(area_id, area_name, description, is_active, "
+                + "bins(bin_id, category_id, capacity_liters, is_active, "
+                + "waste_categories(category_name), "
+                + bin_status_cols
+                + ")))"
+            )
+
         try:
-            try:
-                res = (
-                    self.client.table("stations")
-                    .select(
-                        base_select
-                        + "bin_status(fill_percentage, operational_status, reading_source, updated_at, measured_at))))"
+            res = None
+            last_inner_exc: Optional[Exception] = None
+            for inc_img, inc_src in (
+                (True, True),
+                (False, True),
+                (True, False),
+                (False, False),
+            ):
+                try:
+                    res = (
+                        self.client.table("stations")
+                        .select(_build_live_select(inc_img, inc_src))
+                        .execute()
                     )
-                    .execute()
-                )
-            except Exception as inner_exc:
-                if "reading_source" not in str(inner_exc):
+                    last_inner_exc = None
+                    break
+                except Exception as inner_exc:
+                    err_str = str(inner_exc)
+                    if "image_url" in err_str or "reading_source" in err_str:
+                        last_inner_exc = inner_exc
+                        continue
                     raise
-                res = (
-                    self.client.table("stations")
-                    .select(
-                        base_select
-                        + "bin_status(fill_percentage, operational_status, updated_at, measured_at))))"
-                    )
-                    .execute()
-                )
+            if last_inner_exc is not None:
+                raise last_inner_exc
         except Exception as exc:
             raise DatabaseUnavailableError(
                 f"Failed to query live station status from Supabase: {exc}"
             ) from exc
 
-        rows = res.data or []
+        rows = (res.data if res is not None else None) or []
         station_list: List[StationLiveStatus] = []
+        distinct_category_keys: set[str] = set()
+        total_monitored_compartments = 0
 
         for row in rows:
             if not row.get("is_active", True):
@@ -914,10 +934,11 @@ class DatabaseManager:
             latest_dt: Optional[datetime] = None
 
             def _process_bin(b: Dict[str, Any]) -> Optional[LiveBinItem]:
-                nonlocal has_any_reading, has_valid_reading, has_sensor_error, latest_ts, latest_dt
+                nonlocal has_any_reading, has_valid_reading, has_sensor_error, latest_ts, latest_dt, total_monitored_compartments
                 if not b.get("is_active", True):
                     return None
 
+                total_monitored_compartments += 1
                 cat_obj = b.get("waste_categories")
                 if isinstance(cat_obj, list):
                     cat_obj = cat_obj[0] if cat_obj else None
@@ -927,6 +948,9 @@ class DatabaseManager:
                     else "Unknown"
                 )
                 cat_slug = _normalize_category(cat_name)
+                cat_key = str(b.get("category_id") or cat_slug or cat_name).strip().lower()
+                if cat_key and cat_key != "unknown":
+                    distinct_category_keys.add(cat_key)
 
                 bs = b.get("bin_status")
                 if isinstance(bs, list):
@@ -1039,12 +1063,20 @@ class DatabaseManager:
             max_pct = round(max(numeric_fills), 1) if numeric_fills else None
             color = compute_status_color(max_pct) if max_pct is not None else None
 
+            raw_image_url = row.get("image_url")
+            image_url = (
+                str(raw_image_url).strip()
+                if isinstance(raw_image_url, str) and raw_image_url.strip()
+                else None
+            )
+
             station_list.append(
                 StationLiveStatus(
                     station_id=station_code,
                     name=station_name,
                     location_name=loc_name,
                     description=loc_desc,
+                    image_url=image_url,
                     latitude=lat,
                     longitude=lng,
                     is_online=is_online,
@@ -1061,7 +1093,29 @@ class DatabaseManager:
             )
 
         station_list.sort(key=lambda x: x.station_id)
-        return LiveStatusResponse(stations=station_list)
+
+        # Best-effort real drop_events count when accessible (never blocks live-status under RLS)
+        total_drop_events: Optional[int] = None
+        try:
+            cnt_res = (
+                self.client.table("drop_events")
+                .select("event_id", count="exact")
+                .limit(1)
+                .execute()
+            )
+            raw_count = getattr(cnt_res, "count", None)
+            if isinstance(raw_count, int):
+                total_drop_events = raw_count
+        except Exception:
+            total_drop_events = None
+
+        return LiveStatusResponse(
+            stations=station_list,
+            total_active_stations=len(station_list),
+            total_waste_categories=len(distinct_category_keys),
+            total_monitored_compartments=total_monitored_compartments,
+            total_drop_events=total_drop_events,
+        )
 
     def _get_fixture_live_status(self) -> LiveStatusResponse:
         station_list: List[StationLiveStatus] = []
@@ -1079,6 +1133,7 @@ class DatabaseManager:
                 StationLiveStatus(
                     station_id=s["station_id"],
                     name=s["name"],
+                    image_url=s.get("image_url"),
                     latitude=float(s["latitude"]),
                     longitude=float(s["longitude"]),
                     is_online=is_on,
@@ -1094,7 +1149,13 @@ class DatabaseManager:
             )
 
         station_list.sort(key=lambda x: x.station_id)
-        return LiveStatusResponse(stations=station_list)
+        return LiveStatusResponse(
+            stations=station_list,
+            total_active_stations=len(station_list),
+            total_waste_categories=4,
+            total_monitored_compartments=len(station_list) * 4,
+            total_drop_events=len(self.drop_events),
+        )
 
     def _create_user_client(self, access_token: str) -> Any:
         """Create a per-request Supabase client authenticated with the user's JWT."""
@@ -1448,10 +1509,18 @@ class DatabaseManager:
         if not floors_out and row.get("bins"):
             flat_bins = [self._format_admin_bin(b) for b in (row.get("bins") or [])]
 
+        raw_img = row.get("image_url")
+        image_url = (
+            str(raw_img).strip()
+            if isinstance(raw_img, str) and raw_img.strip()
+            else None
+        )
+
         return {
             "station_uuid": str(row.get("station_id")),
             "station_code": str(row.get("station_code") or row.get("station_id")),
             "station_name": str(row.get("station_name") or ""),
+            "image_url": image_url,
             "is_active": bool(row.get("is_active", True)),
             "location_id": str(row.get("location_id")) if row.get("location_id") else None,
             "location_name": location.get("location_name") if isinstance(location, dict) else "",
@@ -1467,21 +1536,31 @@ class DatabaseManager:
         if not client:
             raise AuthenticationError("ADMIN authentication required.")
 
+        select_tail = (
+            "locations(location_id, location_name, description, latitude, longitude, is_active), "
+            "floors(floor_id, floor_name, floor_order, is_active, "
+            "disposal_areas(area_id, area_name, description, is_active, "
+            "bins(bin_id, area_id, category_id, capacity_liters, is_active, "
+            "waste_categories(category_name), "
+            "bin_status(fill_percentage, operational_status, updated_at))))"
+        )
         try:
-            res = (
-                client.table("stations")
-                .select(
-                    "station_id, station_code, station_name, is_active, location_id, "
-                    "locations(location_id, location_name, description, latitude, longitude, is_active), "
-                    "floors(floor_id, floor_name, floor_order, is_active, "
-                    "disposal_areas(area_id, area_name, description, is_active, "
-                    "bins(bin_id, area_id, category_id, capacity_liters, is_active, "
-                    "waste_categories(category_name), "
-                    "bin_status(fill_percentage, operational_status, updated_at))))"
+            try:
+                res = (
+                    client.table("stations")
+                    .select("station_id, station_code, station_name, image_url, is_active, location_id, " + select_tail)
+                    .order("station_code")
+                    .execute()
                 )
-                .order("station_code")
-                .execute()
-            )
+            except Exception as inner_exc:
+                if "image_url" not in str(inner_exc):
+                    raise
+                res = (
+                    client.table("stations")
+                    .select("station_id, station_code, station_name, is_active, location_id, " + select_tail)
+                    .order("station_code")
+                    .execute()
+                )
         except Exception as exc:
             msg = str(exc)
             if "42501" in msg or "permission denied" in msg.lower():
@@ -1575,18 +1654,31 @@ class DatabaseManager:
             created_location_id = str(loc_res.data[0]["location_id"])
 
             # 4. Insert station
-            st_res = (
-                client.table("stations")
-                .insert(
-                    {
-                        "location_id": created_location_id,
-                        "station_code": payload.station_code.strip(),
-                        "station_name": payload.station_name.strip(),
-                        "is_active": payload.is_active,
-                    }
+            station_insert_data: Dict[str, Any] = {
+                "location_id": created_location_id,
+                "station_code": payload.station_code.strip(),
+                "station_name": payload.station_name.strip(),
+                "is_active": payload.is_active,
+            }
+            if payload.image_url is not None:
+                station_insert_data["image_url"] = payload.image_url
+
+            try:
+                st_res = (
+                    client.table("stations")
+                    .insert(station_insert_data)
+                    .execute()
                 )
-                .execute()
-            )
+            except Exception as st_exc:
+                if "image_url" in str(st_exc) and payload.image_url is None:
+                    station_insert_data.pop("image_url", None)
+                    st_res = (
+                        client.table("stations")
+                        .insert(station_insert_data)
+                        .execute()
+                    )
+                else:
+                    raise
             if not st_res.data:
                 raise DatabaseUnavailableError("Station insert returned no record.")
             created_station_id = str(st_res.data[0]["station_id"])
@@ -1744,12 +1836,25 @@ class DatabaseManager:
                     }
                 ).eq("location_id", location_id).execute()
 
-            client.table("stations").update(
-                {
-                    "station_name": payload.station_name.strip(),
-                    "is_active": payload.is_active,
-                }
-            ).eq("station_id", station_uuid).execute()
+            station_update_data: Dict[str, Any] = {
+                "station_name": payload.station_name.strip(),
+                "is_active": payload.is_active,
+            }
+            if "image_url" in payload.model_fields_set:
+                station_update_data["image_url"] = payload.image_url
+
+            try:
+                client.table("stations").update(
+                    station_update_data
+                ).eq("station_id", station_uuid).execute()
+            except Exception as st_upd_exc:
+                if "image_url" in str(st_upd_exc) and payload.image_url is None:
+                    station_update_data.pop("image_url", None)
+                    client.table("stations").update(
+                        station_update_data
+                    ).eq("station_id", station_uuid).execute()
+                else:
+                    raise
 
             # Explicit bin deletions (respecting FK constraints)
             for del_id in payload.delete_bin_ids:

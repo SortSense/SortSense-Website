@@ -184,6 +184,7 @@ export function adaptStation(
     name: raw.name,
     landmark: raw.location_name ?? undefined,
     description: raw.description ?? undefined,
+    imageUrl: raw.image_url ?? null,
     coordinates,
     hasValidCoordinates,
     distance,
