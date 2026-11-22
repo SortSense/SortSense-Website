@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { StationLiveStatus, WasteCategory } from "@/components/types";
 import { OperationsCard } from "@/components/ui/operations-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -257,92 +258,111 @@ export function PriorityQueue({ stations, onRefresh }: PriorityQueueProps) {
       </OperationsCard>
 
       {/* Empty Bin Modal Dialog */}
-      {selectedEmptyItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 border border-[#E5EAE4] shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#E5EAE4] pb-3">
-              <div className="flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-[#C84F49]" />
-                <h3 className="font-bold text-sm text-[#14231B] font-jakarta">
-                  Confirm Bin Emptying
-                </h3>
+      {selectedEmptyItem &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => {
+              if (!isEmptying) {
+                setEmptyError(null);
+                setSelectedEmptyItem(null);
+              }
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[90vh] max-w-md w-full flex-col overflow-hidden rounded-2xl bg-white border border-[#E5EAE4] shadow-2xl"
+            >
+              <div className="shrink-0 flex items-center justify-between border-b border-[#E5EAE4] px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-[#C84F49]" />
+                  <h3 className="font-bold text-sm text-[#14231B] font-jakarta">
+                    Confirm Bin Emptying
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmptyItem(null)}
+                  aria-label="Close modal"
+                  className="text-xs text-[#65736A] hover:text-[#202A25]"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedEmptyItem(null)}
-                className="text-xs text-[#65736A] hover:text-[#202A25]"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="p-3.5 rounded-xl bg-[#F8F9F6] border border-[#E5EAE4] space-y-1.5 text-xs text-[#202A25]">
-              <div className="flex justify-between">
-                <span className="text-[#65736A]">Target Station:</span>
-                <span className="font-bold">
-                  {selectedEmptyItem.station_name}
-                </span>
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                <div className="p-3.5 rounded-xl bg-[#F8F9F6] border border-[#E5EAE4] space-y-1.5 text-xs text-[#202A25]">
+                  <div className="flex justify-between">
+                    <span className="text-[#65736A]">Target Station:</span>
+                    <span className="font-bold">
+                      {selectedEmptyItem.station_name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#65736A]">Compartment:</span>
+                    <span className="font-bold capitalize">
+                      {selectedEmptyItem.category}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#65736A]">Fill Before Emptying:</span>
+                    <span className="font-mono font-bold text-[#C84F49]">
+                      {selectedEmptyItem.fillPct}%
+                    </span>
+                  </div>
+                </div>
+
+                {emptyError && (
+                  <div className="p-3 rounded-xl bg-[#FFF0EE] border border-[#FADAD7] text-xs text-[#C84F49]">
+                    {emptyError}
+                  </div>
+                )}
+
+                {/* Optional Notes */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#202A25] mb-1">
+                    Maintenance Notes (Optional)
+                  </label>
+                  <textarea
+                    value={emptyNotes}
+                    onChange={(e) => setEmptyNotes(e.target.value)}
+                    placeholder="e.g., Replaced liner, cleaned ToF sensor lens"
+                    rows={2}
+                    disabled={isEmptying}
+                    className="w-full px-3 py-2 text-xs border border-[#DCE5DC] rounded-xl bg-white text-[#202A25] focus:outline-none focus:ring-2 focus:ring-[#14532D]/15 focus:border-[#14532D] disabled:bg-[#F7F8F4] disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#65736A]">Compartment:</span>
-                <span className="font-bold capitalize">
-                  {selectedEmptyItem.category}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#65736A]">Fill Before Emptying:</span>
-                <span className="font-mono font-bold text-[#C84F49]">
-                  {selectedEmptyItem.fillPct}%
-                </span>
+
+              {/* Modal Actions */}
+              <div className="shrink-0 flex justify-end gap-2 border-t border-[#E5EAE4] bg-white px-6 py-4">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  disabled={isEmptying}
+                  onClick={() => {
+                    setEmptyError(null);
+                    setSelectedEmptyItem(null);
+                  }}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="danger"
+                  size="md"
+                  disabled={isEmptying}
+                  onClick={handleConfirmEmpty}
+                >
+                  {isEmptying ? "Emptying..." : "Confirm Emptying Bins"}
+                </Button>
               </div>
             </div>
-
-            {emptyError && (
-              <div className="p-3 rounded-xl bg-[#FFF0EE] border border-[#FADAD7] text-xs text-[#C84F49]">
-                {emptyError}
-              </div>
-            )}
-
-            {/* Optional Notes */}
-            <div>
-              <label className="block text-xs font-semibold text-[#202A25] mb-1">
-                Maintenance Notes (Optional)
-              </label>
-              <textarea
-                value={emptyNotes}
-                onChange={(e) => setEmptyNotes(e.target.value)}
-                placeholder="e.g., Replaced liner, cleaned ToF sensor lens"
-                rows={2}
-                disabled={isEmptying}
-                className="w-full px-3 py-2 text-xs border border-[#DCE5DC] rounded-xl bg-white text-[#202A25] focus:outline-none focus:ring-2 focus:ring-[#14532D]/15 focus:border-[#14532D] disabled:bg-[#F7F8F4] disabled:cursor-not-allowed"
-              />
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#E5EAE4]">
-              <Button
-                variant="secondary"
-                size="md"
-                disabled={isEmptying}
-                onClick={() => {
-                  setEmptyError(null);
-                  setSelectedEmptyItem(null);
-                }}
-              >
-                Close
-              </Button>
-              <Button
-                variant="danger"
-                size="md"
-                disabled={isEmptying}
-                onClick={handleConfirmEmpty}
-              >
-                {isEmptying ? "Emptying..." : "Confirm Emptying Bins"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
