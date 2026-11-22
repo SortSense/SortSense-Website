@@ -152,16 +152,6 @@ export function PublicHeader() {
           >
             Sorting Guide
           </Link>
-
-          {isStaff && (
-            <Link
-              onClick={() => setOpen(false)}
-              href="/dashboard"
-              className="text-[#14532D] font-bold"
-            >
-              Operations Console
-            </Link>
-          )}
         </nav>
 
         <div className="header-actions flex items-center gap-2.5">
@@ -177,54 +167,56 @@ export function PublicHeader() {
                 onClick={() => setAvatarOpen((v) => !v)}
                 aria-label="Account menu"
                 aria-expanded={avatarOpen}
-                className="h-10 w-10 rounded-full bg-[#14532D] text-white text-xs font-bold flex items-center justify-center shadow-xs ring-2 ring-[#14532D]/15 hover:bg-[#0F3F22] transition-colors"
+                className="h-11 w-11 rounded-full bg-[#14532D] text-white text-xs font-bold flex items-center justify-center shadow-xs ring-2 ring-[#14532D]/15 hover:bg-[#0F3F22] transition-colors"
               >
                 {initials}
               </button>
 
               {avatarOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-[#DCE5DC] bg-white p-4 shadow-xl z-50 space-y-3 text-left">
-                  <div className="flex items-start justify-between gap-2 border-b border-[#EFF2EF] pb-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#202A25] truncate">
-                        {userName}
-                      </p>
-                      <p className="text-xs text-[#65736A] truncate">
-                        {userEmail}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        userRole === "ADMIN"
-                          ? "bg-[#E9F3ED] text-[#14532D]"
-                          : userRole === "JANITOR"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {userRole || "USER"}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {isStaff && (
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setAvatarOpen(false)}
-                        className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#14532D] bg-[#F2F7F3] hover:bg-[#E4EFE6] transition-colors"
+                <div className="absolute right-0 top-full pt-2 z-50">
+                  <div className="w-64 rounded-2xl border border-[#DCE5DC] bg-white p-4 shadow-xl space-y-3 text-left">
+                    <div className="flex items-start justify-between gap-2 border-b border-[#EFF2EF] pb-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[#202A25] truncate">
+                          {userName}
+                        </p>
+                        <p className="text-xs text-[#65736A] truncate">
+                          {userEmail}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          userRole === "ADMIN"
+                            ? "bg-[#E9F3ED] text-[#14532D]"
+                            : userRole === "JANITOR"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-slate-100 text-slate-700"
+                        }`}
                       >
-                        <LayoutDashboard size={14} />
-                        Operations Dashboard
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#C84F49] hover:bg-[#FFF0EE] transition-colors"
-                    >
-                      <LogOut size={14} />
-                      Sign Out
-                    </button>
+                        {userRole || "USER"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {isStaff && (
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setAvatarOpen(false)}
+                          className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#14532D] bg-[#F2F7F3] hover:bg-[#E4EFE6] transition-colors"
+                        >
+                          <LayoutDashboard size={14} />
+                          Operations Console
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#C84F49] hover:bg-[#FFF0EE] transition-colors"
+                      >
+                        <LogOut size={14} />
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -232,14 +224,14 @@ export function PublicHeader() {
           ) : (
             <Link
               href="/login"
-              className="inline-flex items-center justify-center h-10 px-4 py-2 rounded-full text-xs font-semibold text-[#202A25] border border-[#DCE5DC] bg-white hover:bg-[#F2F7F3] transition-colors whitespace-nowrap"
+              className="inline-flex items-center justify-center h-11 px-5 rounded-full text-xs font-semibold text-[#202A25] border border-[#DCE5DC] bg-white hover:bg-[#F2F7F3] transition-colors whitespace-nowrap"
             >
               Sign In
             </Link>
           )}
 
           <Link
-            className="inline-flex items-center justify-center h-10 px-4 py-2 rounded-full text-xs font-semibold bg-[#14532D] text-white hover:bg-[#0F3F22] transition-colors shadow-xs whitespace-nowrap"
+            className="inline-flex items-center justify-center h-11 px-5 rounded-full text-xs font-semibold bg-[#14532D] text-white hover:bg-[#0F3F22] transition-colors shadow-xs whitespace-nowrap"
             href="/find-bin"
           >
             Find a Bin

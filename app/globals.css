@@ -94,9 +94,9 @@ body {
 .site-header.is-scrolled {
   margin-top: 12px;
   height: 60px;
-  max-width: min(1040px, calc(100% - 32px));
+  max-width: min(1040px, calc(100% - 36px));
   border-radius: 9999px;
-  padding-inline: 24px;
+  padding: 0 7px 0 22px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(225, 232, 225, 0.95);
   box-shadow: 0 12px 34px rgba(15, 76, 53, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03);
@@ -164,11 +164,11 @@ body {
   height: 60px;
   max-width: min(1040px, calc(100% - 36px));
   border-radius: 9999px;
-  padding-inline: 26px;
-  background: rgba(255, 255, 255, 0.9);
+  padding: 0 7px 0 22px;
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(225, 232, 225, 0.95);
   box-shadow: 0 12px 34px rgba(15, 76, 53, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03);
-  gap: 36px;
+  gap: 32px;
 }
 .logo { display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; color: var(--forest); }
 .logo-symbol { width: 35px; height: 35px; }
@@ -179,8 +179,9 @@ body {
 .site-nav a { color: var(--muted); font-size: 13px; font-weight: 600; transition: color .2s ease; }
 .site-nav a:hover, .site-nav a.active { color: var(--forest); }
 .nav-separator { width: 1px; height: 18px; background: var(--line); }
-.header-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.menu-toggle { width: 42px; height: 42px; display: none; place-items: center; color: var(--forest); background: white; border: 1px solid var(--line); border-radius: 12px; transition: background .18s ease; }
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.site-header.is-scrolled .header-actions { gap: 8px; }
+.menu-toggle { width: 44px; height: 44px; display: none; place-items: center; color: var(--forest); background: white; border: 1px solid var(--line); border-radius: 9999px; transition: background .18s ease; }
 .menu-toggle:hover { background: #f2f7f3; }
 .is-scrolled .header-cta { min-height: 38px; padding-inline: 16px; font-size: 12px; }
 
@@ -430,7 +431,7 @@ body {
 @media (max-width: 780px) {
   .site-header-wrapper { height: 72px; }
   .site-header { height: 72px; }
-  .site-header.is-scrolled { height: 58px; margin-top: 8px; max-width: calc(100% - 24px); border-radius: 20px; padding-inline: 16px; }
+  .site-header.is-scrolled { height: 58px; margin-top: 8px; max-width: calc(100% - 24px); border-radius: 9999px; padding: 0 7px 0 16px; }
   .site-nav { padding: 18px; display: none; align-items: stretch; flex-direction: column; gap: 8px; position: absolute; top: calc(100% + 10px); left: 0; right: 0; background: rgba(255,255,255,.98); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 18px 45px rgba(25,61,44,.14); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
   .site-nav.is-open { display: flex; }
   .site-nav a { padding: 10px; }
