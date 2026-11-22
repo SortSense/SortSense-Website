@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -307,13 +308,27 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
     setCollapsedFloors({});
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     if (submitting || uploadingPhoto) return;
     setModalMode(null);
     setEditingCode(null);
     setFormError(null);
     setPhotoError(null);
-  };
+  }, [submitting, uploadingPhoto]);
+
+  useEffect(() => {
+    if (!modalMode) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [modalMode, closeModal]);
 
   const handlePhotoFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -900,34 +915,52 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
         )}
       </div>
 
-      {/* Create / Edit Modal */}
-      {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-[#F7F8F4] px-6 py-4">
-              <div className="flex items-center gap-2.5">
-                <Building2 className="h-5 w-5 text-[#176B45]" />
-                <div>
-                  <h3 className="text-lg font-bold text-[#111827] font-[family-name:var(--font-manrope)]">
-                    {modalMode === "create"
-                      ? "Create Station & Hierarchy"
-                      : `Edit Station: ${editingCode}`}
-                  </h3>
-                  <p className="text-xs text-[#6B7280]">
-                    Station → Floors → Disposal Areas → Bins
-                  </p>
+      {/* Create / Edit Modal (Portaled to document.body above sticky Navbar z-1000) */}
+      {modalMode &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="station-modal-title"
+            onClick={closeModal}
+          >
+            <form
+              onSubmit={handleSubmit}
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#DCE5DC] bg-white shadow-2xl"
+            >
+              {/* Sticky Non-Scrolling Modal Header */}
+              <div className="shrink-0 flex items-center justify-between border-b border-[#E5E7EB] bg-[#F7F8F4] px-6 py-4">
+                <div className="flex items-center gap-2.5">
+                  <Building2 className="h-5 w-5 text-[#14532D]" />
+                  <div>
+                    <h3
+                      id="station-modal-title"
+                      className="text-lg font-bold text-[#111827] font-[family-name:var(--font-jakarta)]"
+                    >
+                      {modalMode === "create"
+                        ? "Create Station & Hierarchy"
+                        : `Edit Station: ${editingCode}`}
+                    </h3>
+                    <p className="text-xs text-[#6B7280]">
+                      Station → Floors → Disposal Areas → Bins
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  aria-label="Close modal"
+                  className="rounded-lg p-1.5 text-[#6B7280] hover:bg-[#E5E7EB]/70 hover:text-[#111827] transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1.5 text-[#6B7280] hover:bg-[#E5E7EB]/60"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Internally Scrollable Form Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               {formError && (
                 <div className="flex items-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
                   <AlertCircle className="h-4 w-4 shrink-0" />
@@ -1458,19 +1491,22 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-[#E5E7EB] pt-4">
+              </div>
+
+              {/* Sticky Non-Scrolling Modal Footer */}
+              <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#E5E7EB] bg-white px-6 py-4">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={submitting || uploadingPhoto}
-                  className="rounded-xl border border-[#D1D5DB] bg-white px-4 py-2 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB]"
+                  className="rounded-full border border-[#D1D5DB] bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB] disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || uploadingPhoto}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#176B45] px-5 py-2 text-sm font-semibold text-white hover:bg-[#125637] disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#14532D] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#0F3F22] disabled:opacity-60 transition-colors"
                 >
                   {(submitting || uploadingPhoto) && (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1483,9 +1519,9 @@ export function StationManagement({ onDashboardRefresh }: StationManagementProps
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

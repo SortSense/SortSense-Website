@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { StationLiveStatus, WasteCategory } from "@/components/types";
 import { OperationsCard } from "@/components/ui/operations-card";
@@ -326,102 +327,117 @@ export function StationInspector({ station, onRefresh }: StationInspectorProps) 
       </div>
 
       {/* GPS Provisioning Modal */}
-      {showProvisionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#E1E8E1] shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#E1E8E1] pb-3">
-              <h3 className="font-bold text-sm text-[#14231B] font-jakarta flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-[#14532D]" />
-                Station GPS Provisioning
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowProvisionModal(false)}
-                className="text-xs text-[#65736A] hover:text-[#202A25]"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-[#65736A]">
-              Calibrate installation coordinates for{" "}
-              <strong className="font-mono text-[#202A25]">
-                {station.station_id}
-              </strong>
-              .
-            </p>
-
-            {provisionError && (
-              <div className="p-2.5 rounded-lg bg-[#FFF0EE] border border-[#FADAD7] text-xs text-[#C84F49]">
-                {provisionError}
-              </div>
-            )}
-
-            <form onSubmit={handleProvision} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-[#202A25] mb-1">
-                  Station Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D]"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#202A25] mb-1">
-                    Latitude
-                  </label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={lat}
-                    onChange={(e) => setLat(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#202A25] mb-1">
-                    Longitude
-                  </label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={lng}
-                    onChange={(e) => setLng(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-[#E1E8E1]">
-                <Button
+      {showProvisionModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setShowProvisionModal(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[90vh] max-w-md w-full flex-col overflow-hidden rounded-2xl bg-white border border-[#E1E8E1] shadow-2xl"
+            >
+              <div className="shrink-0 flex items-center justify-between border-b border-[#E1E8E1] px-6 py-4">
+                <h3 className="font-bold text-sm text-[#14231B] font-jakarta flex items-center gap-2">
+                  <QrCode className="w-4 h-4 text-[#14532D]" />
+                  Station GPS Provisioning
+                </h3>
+                <button
                   type="button"
-                  variant="secondary"
-                  size="md"
                   onClick={() => setShowProvisionModal(false)}
+                  aria-label="Close modal"
+                  className="text-xs text-[#65736A] hover:text-[#202A25]"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  disabled={isProvisioning}
-                >
-                  {isProvisioning ? "Saving..." : "Save Coordinates"}
-                </Button>
+                  ✕
+                </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form
+                onSubmit={handleProvision}
+                className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4"
+              >
+                <p className="text-xs text-[#65736A]">
+                  Calibrate installation coordinates for{" "}
+                  <strong className="font-mono text-[#202A25]">
+                    {station.station_id}
+                  </strong>
+                  .
+                </p>
+
+                {provisionError && (
+                  <div className="p-2.5 rounded-lg bg-[#FFF0EE] border border-[#FADAD7] text-xs text-[#C84F49]">
+                    {provisionError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#202A25] mb-1">
+                    Station Name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D]"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#202A25] mb-1">
+                      Latitude
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={lat}
+                      onChange={(e) => setLat(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#202A25] mb-1">
+                      Longitude
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={lng}
+                      onChange={(e) => setLng(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono border border-[#E1E8E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-[#E1E8E1]">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    onClick={() => setShowProvisionModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    disabled={isProvisioning}
+                  >
+                    {isProvisioning ? "Saving..." : "Save Coordinates"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
     </OperationsCard>
   );
 }
