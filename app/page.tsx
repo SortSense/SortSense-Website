@@ -434,32 +434,7 @@ export default function HomePage() {
                 {liveMetrics.activeStationsCount === 1 ? "station" : "stations"}
               </span>
               <span>
-                {liveMetrics.loaded &&
-                liveMetrics.dropEventsCount !== null &&
-                liveMetrics.dropEventsCount > 0 ? (
-                  <>
-                    <strong>
-                      {formatTwoDigits(liveMetrics.dropEventsCount)}
-                    </strong>{" "}
-                    sorted{" "}
-                    {liveMetrics.dropEventsCount === 1 ? "item" : "items"}{" "}
-                    logged
-                  </>
-                ) : (
-                  <>
-                    <strong>
-                      {liveMetrics.loaded
-                        ? formatTwoDigits(
-                            liveMetrics.monitoredCompartmentsCount,
-                          )
-                        : "—"}
-                    </strong>{" "}
-                    monitored{" "}
-                    {liveMetrics.monitoredCompartmentsCount === 1
-                      ? "compartment"
-                      : "compartments"}
-                  </>
-                )}
+                <strong>01</strong> mission
               </span>
             </div>
           </div>
