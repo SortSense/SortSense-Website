@@ -1115,21 +1115,35 @@ export default function HomePage() {
         </section>
 
         {/* FINAL CALL TO ACTION */}
-        <section className="renew-final page-width" aria-label="Call to action">
-          <div>
-            <span className="renew-kicker light">
-              <i /> The next right choice is nearby
-            </span>
-            <h2>Ready to find your bin?</h2>
-          </div>
-          <p>
-            Choose a waste category, compare real-time availability, and open
-            directions to an active station across campus.
-          </p>
-          <Link className="button button-accent button-large" href="/find-bin">
-            Find a Bin <ArrowRight size={17} />
-          </Link>
-        </section>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+          <section
+            className="rounded-2xl bg-[#10442B] text-white px-6 py-7 sm:px-8 sm:py-8 shadow-[0_12px_30px_rgba(16,68,43,0.14)] flex flex-col lg:flex-row lg:items-center justify-between gap-5"
+            aria-label="Call to action"
+          >
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-wider uppercase text-[#D8ED8F]">
+                <span className="h-[2px] w-4 rounded-full bg-current" />
+                The next right choice is nearby
+              </span>
+              <h2 className="font-jakarta text-xl sm:text-2xl font-bold leading-tight mt-1 text-white">
+                Ready to find your bin?
+              </h2>
+            </div>
+
+            <p className="text-xs sm:text-sm text-[#B8CFC3] leading-relaxed max-w-md">
+              Choose a waste category, compare real-time availability, and open
+              directions to an active station across campus.
+            </p>
+
+            <Link
+              href="/find-bin"
+              className="shrink-0 inline-flex items-center justify-center gap-2 h-10 px-5 rounded-full bg-[#D8ED8F] hover:bg-[#CBE578] text-[#0F3F22] text-xs sm:text-sm font-semibold shadow-xs transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap"
+            >
+              <span>Find a Bin</span>
+              <ArrowRight size={15} />
+            </Link>
+          </section>
+        </div>
       </main>
 
       <PublicFooter />

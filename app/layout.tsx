@@ -4,6 +4,11 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SortSense — Smart Campus Waste Management',
   description: 'AI-powered waste sorting, IoT fill telemetry, and university environmental operations console.',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
