@@ -289,10 +289,13 @@ export default function HomePage() {
         {/* PART A: HERO SECTION WITH REAL STATION PHOTO & LIVE CARD     */}
         {/* ============================================================ */}
         <section
-          className="renew-hero page-width pt-4 pb-6 lg:pt-6 lg:pb-8"
+          className="relative w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-6 lg:pt-6 lg:pb-8"
           aria-label="Introduction"
         >
-          <div className="renew-hero-bg-accent" aria-hidden="true">
+          <div
+            className="pointer-events-none absolute top-2 -left-16 h-80 w-80 opacity-80"
+            aria-hidden="true"
+          >
             <svg
               className="h-full w-full"
               viewBox="0 0 400 400"
@@ -312,9 +315,9 @@ export default function HomePage() {
             </svg>
           </div>
 
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full">
             {/* Left Column: Compact Typography & CTAs */}
-            <div className="lg:col-span-6">
+            <div className="w-full min-w-0">
               <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-wider uppercase text-[#14532D]">
                 <span className="h-[2px] w-4 rounded-full bg-[#14532D]" />
                 Smarter Sorting. Better Choices.
@@ -365,7 +368,7 @@ export default function HomePage() {
             </div>
 
             {/* Right Column: Constrained Visual Station Card & Floating Overlays */}
-            <div className="lg:col-span-6">
+            <div className="w-full min-w-0">
               <div className="relative h-[340px] sm:h-[380px] lg:h-[410px] w-full rounded-2xl overflow-hidden bg-[#DCE6DC] border border-black/5 shadow-[0_18px_42px_rgba(15,52,38,0.11)]">
                 <img
                   src={heroImageSrc}
@@ -516,8 +519,8 @@ export default function HomePage() {
                     aria-controls={`panel-${step.id}`}
                     onClick={() => setActiveStepIndex(idx)}
                     className={`flex-1 flex items-center gap-4 w-full text-left rounded-2xl border px-5 py-5 transition-all cursor-pointer ${isSelected
-                        ? "bg-white border-[#14532D] shadow-[0_8px_24px_rgba(20,83,45,0.09)] ring-1 ring-[#14532D]/10"
-                        : "bg-white border-[#E1E8E1] hover:border-[#A9C9B6] hover:bg-[#FCFDFC]"
+                      ? "bg-white border-[#14532D] shadow-[0_8px_24px_rgba(20,83,45,0.09)] ring-1 ring-[#14532D]/10"
+                      : "bg-white border-[#E1E8E1] hover:border-[#A9C9B6] hover:bg-[#FCFDFC]"
                       }`}
                   >
                     <div className="flex items-center gap-3 shrink-0">
@@ -529,8 +532,8 @@ export default function HomePage() {
                       </span>
                       <span
                         className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${isSelected
-                            ? "bg-[#14532D] text-white"
-                            : "bg-[#EEF5F1] text-[#14532D]"
+                          ? "bg-[#14532D] text-white"
+                          : "bg-[#EEF5F1] text-[#14532D]"
                           }`}
                       >
                         <Icon size={18} />
@@ -552,8 +555,8 @@ export default function HomePage() {
                     <ChevronRight
                       size={18}
                       className={`shrink-0 transition-transform ${isSelected
-                          ? "text-[#14532D] translate-x-0.5"
-                          : "text-[#A4B4AB]"
+                        ? "text-[#14532D] translate-x-0.5"
+                        : "text-[#A4B4AB]"
                         }`}
                     />
                   </button>
@@ -963,8 +966,8 @@ export default function HomePage() {
                     aria-controls={`cat-panel-${category.slug}`}
                     onClick={() => handleSelectCategory(category.slug)}
                     className={`relative flex-1 flex items-center gap-3.5 py-3.5 px-5 text-sm text-left transition-colors cursor-pointer ${isSelected
-                        ? "bg-[#14532D] text-white"
-                        : "bg-transparent text-[#1A2620] hover:bg-[#F1F6F2]"
+                      ? "bg-[#14532D] text-white"
+                      : "bg-transparent text-[#1A2620] hover:bg-[#F1F6F2]"
                       }`}
                   >
                     {/* Active Indicator Bar */}
@@ -1007,8 +1010,8 @@ export default function HomePage() {
                     <ArrowRight
                       size={15}
                       className={`shrink-0 transition-transform ${isSelected
-                          ? "text-white translate-x-0.5"
-                          : "text-[#9AB0A2]"
+                        ? "text-white translate-x-0.5"
+                        : "text-[#9AB0A2]"
                         }`}
                     />
                   </button>
