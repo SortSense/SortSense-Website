@@ -111,6 +111,7 @@ export function PublicHeader() {
     const supabase = createClient();
     await supabase.auth.signOut();
     setAvatarOpen(false);
+    setOpen(false);
     setUserEmail(null);
     setUserName(null);
     setUserRole(null);
@@ -126,125 +127,187 @@ export function PublicHeader() {
         className={`site-header ${isScrolled ? "is-scrolled" : ""}`}
         role="banner"
       >
-        <Logo />
-        <nav
-          className={`site-nav ${open ? "is-open" : ""}`}
-          aria-label="Primary navigation"
-        >
-          <Link
-            onClick={() => setOpen(false)}
-            href="/"
-            className={pathname === "/" ? "active" : ""}
-          >
-            Home
-          </Link>
-          <Link
-            onClick={() => setOpen(false)}
-            href="/find-bin"
-            className={pathname === "/find-bin" ? "active" : ""}
-          >
-            Find a Bin
-          </Link>
-          <Link
-            onClick={() => setOpen(false)}
-            href="/sorting-guide"
-            className={pathname === "/sorting-guide" ? "active" : ""}
-          >
-            Sorting Guide
-          </Link>
-        </nav>
+        <div className="site-header-inner w-full max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-2">
+          <Logo className="shrink-0" />
 
-        <div className="header-actions flex items-center gap-2.5">
-          {userEmail ? (
-            <div
-              ref={avatarContainerRef}
-              className="relative"
-              onMouseEnter={() => setAvatarOpen(true)}
-              onMouseLeave={() => setAvatarOpen(false)}
+          <nav
+            className={`site-nav ${open ? "is-open" : ""}`}
+            aria-label="Primary navigation"
+          >
+            <Link
+              onClick={() => setOpen(false)}
+              href="/"
+              className={pathname === "/" ? "active" : ""}
             >
-              <button
-                type="button"
-                onClick={() => setAvatarOpen((v) => !v)}
-                aria-label="Account menu"
-                aria-expanded={avatarOpen}
-                className="h-11 w-11 rounded-full bg-[#14532D] text-white text-xs font-bold flex items-center justify-center shadow-xs ring-2 ring-[#14532D]/15 hover:bg-[#0F3F22] transition-colors"
-              >
-                {initials}
-              </button>
+              Home
+            </Link>
+            <Link
+              onClick={() => setOpen(false)}
+              href="/find-bin"
+              className={pathname === "/find-bin" ? "active" : ""}
+            >
+              Find a Bin
+            </Link>
+            <Link
+              onClick={() => setOpen(false)}
+              href="/sorting-guide"
+              className={pathname === "/sorting-guide" ? "active" : ""}
+            >
+              Sorting Guide
+            </Link>
 
-              {avatarOpen && (
-                <div className="absolute right-0 top-full pt-2 z-50">
-                  <div className="w-64 rounded-2xl border border-[#DCE5DC] bg-white p-4 shadow-xl space-y-3 text-left">
-                    <div className="flex items-start justify-between gap-2 border-b border-[#EFF2EF] pb-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-[#202A25] truncate">
-                          {userName}
-                        </p>
-                        <p className="text-xs text-[#65736A] truncate">
-                          {userEmail}
-                        </p>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          userRole === "ADMIN"
-                            ? "bg-[#E9F3ED] text-[#14532D]"
-                            : userRole === "JANITOR"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {userRole || "USER"}
-                      </span>
+            {/* Mobile-only Account / Sign In section inside collapsible burger drawer */}
+            <div className="md:hidden mt-2 pt-3 border-t border-[#E6ECE6] space-y-2">
+              {userEmail ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 px-1 pb-1">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#14231B] truncate">
+                        {userName}
+                      </p>
+                      <p className="text-[11px] text-[#65736A] truncate">
+                        {userEmail}
+                      </p>
                     </div>
-
-                    <div className="space-y-1.5">
-                      {isStaff && (
-                        <Link
-                          href="/dashboard"
-                          onClick={() => setAvatarOpen(false)}
-                          className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#14532D] bg-[#F2F7F3] hover:bg-[#E4EFE6] transition-colors"
-                        >
-                          <LayoutDashboard size={14} />
-                          Operations Console
-                        </Link>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleSignOut}
-                        className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#C84F49] hover:bg-[#FFF0EE] transition-colors"
-                      >
-                        <LogOut size={14} />
-                        Sign Out
-                      </button>
-                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        userRole === "ADMIN"
+                          ? "bg-[#E9F3ED] text-[#14532D]"
+                          : userRole === "JANITOR"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {userRole || "USER"}
+                    </span>
                   </div>
-                </div>
+
+                  {isStaff && (
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setOpen(false)}
+                      className="w-full inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full text-xs font-semibold text-white bg-[#14532D] hover:bg-[#0F3F22] transition-colors"
+                    >
+                      <LayoutDashboard size={14} />
+                      <span>Operations Console</span>
+                    </Link>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="w-full inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full text-xs font-semibold text-[#C84F49] border border-[#FADAD7] bg-[#FFF5F4] hover:bg-[#FEE8E6] transition-colors"
+                  >
+                    <LogOut size={14} />
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="w-full inline-flex items-center justify-center h-10 px-4 rounded-full text-xs font-semibold text-[#14532D] border border-[#C8D8CE] bg-[#F5F9F6] hover:bg-[#EAF3ED] transition-colors"
+                >
+                  Sign In
+                </Link>
               )}
             </div>
-          ) : (
+          </nav>
+
+          {/* Right Action Controls: Desktop shows Sign In/Avatar + Find a Bin; Mobile shows ONLY Find a Bin + Burger */}
+          <div className="header-actions flex items-center gap-2 shrink-0">
+            {userEmail ? (
+              <div
+                ref={avatarContainerRef}
+                className="relative hidden md:inline-flex"
+                onMouseEnter={() => setAvatarOpen(true)}
+                onMouseLeave={() => setAvatarOpen(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => setAvatarOpen((v) => !v)}
+                  aria-label="Account menu"
+                  aria-expanded={avatarOpen}
+                  className="h-11 w-11 rounded-full bg-[#14532D] text-white text-xs font-bold flex items-center justify-center shadow-xs ring-2 ring-[#14532D]/15 hover:bg-[#0F3F22] transition-colors"
+                >
+                  {initials}
+                </button>
+
+                {avatarOpen && (
+                  <div className="absolute right-0 top-full pt-2 z-50">
+                    <div className="w-64 rounded-2xl border border-[#DCE5DC] bg-white p-4 shadow-xl space-y-3 text-left">
+                      <div className="flex items-start justify-between gap-2 border-b border-[#EFF2EF] pb-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#202A25] truncate">
+                            {userName}
+                          </p>
+                          <p className="text-xs text-[#65736A] truncate">
+                            {userEmail}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            userRole === "ADMIN"
+                              ? "bg-[#E9F3ED] text-[#14532D]"
+                              : userRole === "JANITOR"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {userRole || "USER"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {isStaff && (
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setAvatarOpen(false)}
+                            className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#14532D] bg-[#F2F7F3] hover:bg-[#E4EFE6] transition-colors"
+                          >
+                            <LayoutDashboard size={14} />
+                            Operations Console
+                          </Link>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleSignOut}
+                          className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-semibold text-[#C84F49] hover:bg-[#FFF0EE] transition-colors"
+                        >
+                          <LogOut size={14} />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden md:inline-flex items-center justify-center h-11 px-5 rounded-full text-xs font-semibold text-[#202A25] border border-[#DCE5DC] bg-white hover:bg-[#F2F7F3] transition-colors whitespace-nowrap shrink-0"
+              >
+                Sign In
+              </Link>
+            )}
+
             <Link
-              href="/login"
-              className="inline-flex items-center justify-center h-11 px-5 rounded-full text-xs font-semibold text-[#202A25] border border-[#DCE5DC] bg-white hover:bg-[#F2F7F3] transition-colors whitespace-nowrap"
+              className="inline-flex items-center justify-center h-9 px-3.5 text-xs sm:h-10 sm:px-5 sm:text-sm md:h-11 md:px-5 md:text-xs rounded-full font-semibold bg-[#14532D] text-white hover:bg-[#0F3F22] transition-colors shadow-xs whitespace-nowrap shrink-0"
+              href="/find-bin"
             >
-              Sign In
+              Find a Bin
             </Link>
-          )}
 
-          <Link
-            className="inline-flex items-center justify-center h-11 px-5 rounded-full text-xs font-semibold bg-[#14532D] text-white hover:bg-[#0F3F22] transition-colors shadow-xs whitespace-nowrap"
-            href="/find-bin"
-          >
-            Find a Bin
-          </Link>
-
-          <button
-            className="menu-toggle"
-            aria-label={open ? "Close navigation" : "Open navigation"}
-            aria-expanded={open}
-            onClick={() => setOpen((value) => !value)}
-          >
-            {open ? <X size={20} /> : <Menu size={20} />}
-          </button>
+            <button
+              type="button"
+              className="h-9 w-9 inline-flex md:hidden items-center justify-center rounded-full border border-[#DCE5DC] bg-white text-[#14532D] hover:bg-[#F2F7F3] transition-colors shrink-0"
+              aria-label={open ? "Close navigation" : "Open navigation"}
+              aria-expanded={open}
+              onClick={() => setOpen((value) => !value)}
+            >
+              {open ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
         </div>
       </header>
     </div>
