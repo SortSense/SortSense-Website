@@ -21,7 +21,7 @@ CompartmentTarget = Literal["all", "plastic", "paper", "metal", "general"]
 StatusColor = Literal["green", "yellow", "red"]
 StationConnectivityStatus = Literal["ONLINE", "OFFLINE", "UNKNOWN"]
 OperationalStatusValue = Literal["NORMAL", "SENSOR_ERROR"]
-ReadingSource = Literal["HARDWARE", "SIMULATED"]
+ReadingSource = Literal["HARDWARE", "SIMULATED", "LEGACY"]
 
 
 class FillLevels(BaseModel):
@@ -100,6 +100,7 @@ class LiveBinItem(BaseModel):
     fill_percentage: Optional[float] = None
     operational_status: Optional[str] = None
     reading_source: Optional[ReadingSource] = None
+    is_active: bool = True
     updated_at: Optional[str] = None
 
 

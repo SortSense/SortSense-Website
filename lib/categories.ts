@@ -14,7 +14,7 @@ export interface Bin {
   areaName?: string;
   floorName?: string;
   operationalStatus?: string | null;
-  readingSource?: 'HARDWARE' | 'SIMULATED' | null;
+  readingSource?: 'HARDWARE' | 'SIMULATED' | 'LEGACY' | null;
 }
 
 export interface DisposalArea {
