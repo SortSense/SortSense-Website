@@ -22,6 +22,7 @@ import {
   PriorityPickupWidget,
   RecentAiEventsWidget,
 } from "@/components/janitor/bento-side-panels";
+import { computeFleetSensorHealth } from "@/lib/sensor-health";
 import {
   Activity,
   AlertCircle,
@@ -407,28 +408,28 @@ export default function DashboardPage() {
     );
   }, [stations, stationFilter, focusedStationId]);
 
-  // KPI computations (strictly honoring null as offline, never 0%)
+  // KPI computations (actual configured bins via computeFleetSensorHealth; never assumes 4 slots/station)
   const kpi = useMemo(() => {
     const totalStations = scopedStations.length;
-    const onlineStations = scopedStations.filter((s) => s.is_online).length;
+    const onlineStations = scopedStations.filter(
+      (s) => s.is_online && !s.is_stale,
+    ).length;
+
+    const sensorHealth = computeFleetSensorHealth(scopedStations);
 
     let criticalBins = 0;
-    let totalSensors = 0;
-    let activeSensors = 0;
-    let offlineSensors = 0;
-
     scopedStations.forEach((st) => {
       COMPARTMENTS.forEach((cat) => {
-        totalSensors += 1;
         const fill = st.fill_levels[cat];
         const hasErr = Boolean(st.sensor_error_categories?.includes(cat));
-        if (hasErr || fill === null || fill === undefined || Number.isNaN(fill)) {
-          offlineSensors += 1;
-        } else {
-          activeSensors += 1;
-          if (fill >= 80) {
-            criticalBins += 1;
-          }
+        if (
+          !hasErr &&
+          fill !== null &&
+          fill !== undefined &&
+          !Number.isNaN(fill) &&
+          fill >= 80
+        ) {
+          criticalBins += 1;
         }
       });
     });
@@ -454,9 +455,10 @@ export default function DashboardPage() {
       totalStations,
       onlineStations,
       criticalBins,
-      totalSensors,
-      activeSensors,
-      offlineSensors,
+      totalBins: sensorHealth.totalBins,
+      activeToF: sensorHealth.activeToF,
+      offlineOrNa: sensorHealth.offlineOrNa,
+      cachedReadings: sensorHealth.cachedReadings,
       eventsLogged,
       avgConfidence,
     };
@@ -866,7 +868,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="font-jakarta text-2xl font-extrabold tracking-tight text-[#14231B] tabular-nums">
-                    {kpi.activeSensors} / {kpi.totalSensors}
+                    {kpi.activeToF} / {kpi.totalBins}
                   </span>
                   <span className="text-xs font-semibold text-[#5E6D64]">
                     Active ToF
@@ -875,14 +877,18 @@ export default function DashboardPage() {
                 <div>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
-                      kpi.offlineSensors > 0
-                        ? "bg-[#FFF6E4] text-[#9A6310] border-[#FDE8BF]"
-                        : "bg-[#E9F4EC] text-[#14532D] border-[#CBE4D3]"
+                      kpi.totalBins === 0
+                        ? "bg-[#EFF2EF] text-[#65736A] border-[#E1E8E1]"
+                        : kpi.offlineOrNa > 0
+                          ? "bg-[#FFF6E4] text-[#9A6310] border-[#FDE8BF]"
+                          : "bg-[#E9F4EC] text-[#14532D] border-[#CBE4D3]"
                     }`}
                   >
-                    {kpi.offlineSensors > 0
-                      ? `${kpi.offlineSensors} offline / N/A`
-                      : "All sensors reporting"}
+                    {kpi.totalBins === 0
+                      ? "No bins configured"
+                      : kpi.offlineOrNa > 0
+                        ? `${kpi.offlineOrNa} offline / N/A`
+                        : "All sensors reporting"}
                   </span>
                 </div>
               </div>

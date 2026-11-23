@@ -5,6 +5,10 @@ import { StationLiveStatus } from '@/components/types';
 import { OperationsCard } from '@/components/ui/operations-card';
 import { StatusBadge, resolveStationOperationalStatus } from '@/components/ui/status-badge';
 import {
+  computeStationSensorHealth,
+  type StationSensorHealth,
+} from '@/lib/sensor-health';
+import {
   Cpu,
   Wifi,
   Clock,
@@ -13,6 +17,43 @@ import {
 
 interface HardwareDiagnosticsProps {
   stations: StationLiveStatus[];
+}
+
+function formatSensorReadingsSummary(
+  st: StationLiveStatus,
+  health: StationSensorHealth,
+): string {
+  if (health.totalBins === 0) {
+    return '0 configured bins';
+  }
+
+  const faultSuffix =
+    health.sensorErrors > 0
+      ? ` · ${health.sensorErrors} fault${health.sensorErrors === 1 ? '' : 's'}`
+      : '';
+
+  if (health.isLive) {
+    const parts = [`${health.activeToF} / ${health.totalBins} active ToF`];
+    if (health.simulatedReadings > 0) {
+      parts.push(`${health.simulatedReadings} simulated`);
+    }
+    if (health.legacyReadings > 0) {
+      parts.push(`${health.legacyReadings} legacy`);
+    }
+    return `${parts.join(' · ')}${faultSuffix}`;
+  }
+
+  if (st.is_stale) {
+    const staleDetail =
+      health.cachedReadings > 0
+        ? ` (${health.cachedReadings} stale cached)`
+        : ' (stale)';
+    return `0 / ${health.totalBins} active${staleDetail}${faultSuffix}`;
+  }
+
+  const cachedDetail =
+    health.cachedReadings > 0 ? ` (${health.cachedReadings} cached)` : '';
+  return `0 / ${health.totalBins} active${cachedDetail}${faultSuffix}`;
 }
 
 export function HardwareDiagnostics({ stations }: HardwareDiagnosticsProps) {
@@ -43,10 +84,8 @@ export function HardwareDiagnostics({ stations }: HardwareDiagnosticsProps) {
               <tbody className="divide-y divide-[#E1E8E1] text-[#202A25]">
                 {stations.map((st) => {
                   const resolved = resolveStationOperationalStatus(st);
-                  const activeReadings = (
-                    ['plastic', 'paper', 'metal', 'general'] as const
-                  ).filter((c) => st.fill_levels[c] !== null && st.fill_levels[c] !== undefined).length;
-                  const errorCount = st.sensor_error_categories?.length ?? 0;
+                  const health = computeStationSensorHealth(st);
+                  const readingSummary = formatSensorReadingsSummary(st, health);
 
                   return (
                     <tr key={st.station_id} className="hover:bg-[#E9F3ED]/30 transition-colors">
@@ -55,7 +94,7 @@ export function HardwareDiagnostics({ stations }: HardwareDiagnosticsProps) {
                           className={`w-3.5 h-3.5 ${
                             st.has_sensor_error
                               ? 'text-[#9A3412]'
-                              : st.is_online
+                              : health.isLive
                               ? 'text-[#48A868]'
                               : 'text-[#65736A]'
                           }`}
@@ -73,8 +112,7 @@ export function HardwareDiagnostics({ stations }: HardwareDiagnosticsProps) {
                       </td>
                       <td className="py-3 px-3">
                         <span className="font-mono text-[11px] text-[#65736A]">
-                          {activeReadings} active reading{activeReadings === 1 ? '' : 's'}
-                          {errorCount > 0 ? ` · ${errorCount} fault` : ''} (sensors restricted)
+                          {readingSummary} (sensors restricted)
                         </span>
                       </td>
                       <td className="py-3 px-3 font-mono text-[11px] text-[#65736A]">

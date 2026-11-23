@@ -11,6 +11,8 @@ export interface FillLevels {
   general: number | null;
 }
 
+export type ReadingSource = 'HARDWARE' | 'SIMULATED' | 'LEGACY';
+
 export interface LiveBinItem {
   bin_id: string;
   category_id?: string | null;
@@ -19,7 +21,8 @@ export interface LiveBinItem {
   capacity_liters: number;
   fill_percentage: number | null;
   operational_status?: string | null;
-  reading_source?: 'HARDWARE' | 'SIMULATED' | null;
+  reading_source?: ReadingSource | null;
+  is_active?: boolean;
   updated_at: string | null;
 }
 

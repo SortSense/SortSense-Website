@@ -1491,9 +1491,54 @@ class TestAdminStationManagement:
         assert st["floors"][0]["disposal_areas"][0]["area_name"] == "Main Entrance"
         assert len(st["floors"][0]["disposal_areas"][0]["bins"]) == 1
         assert st["floors"][0]["disposal_areas"][0]["bins"][0]["category_name"] == "Plastic"
+        assert st["floors"][0]["disposal_areas"][0]["bins"][0]["is_active"] is True
         assert body["total_active_stations"] == 1
         assert body["total_waste_categories"] == 1
         assert body["total_monitored_compartments"] == 1
+
+    def test_live_status_nested_bins_expose_reading_source_and_is_active(self, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setattr(db, "use_fixtures", False)
+        fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        store = self._make_store(role="ADMIN")
+        store["locations"].append(
+            {"location_id": "loc-1", "location_name": "Shuimu", "description": None, "latitude": 24.79, "longitude": 120.99, "is_active": True}
+        )
+        store["stations"].append(
+            {"station_id": "st-1", "location_id": "loc-1", "station_code": "ST-SRC", "station_name": "Source Station", "is_active": True}
+        )
+        store["floors"].append(
+            {"floor_id": "fl-1", "station_id": "st-1", "floor_name": "1F", "floor_order": 1, "is_active": True}
+        )
+        store["disposal_areas"].append(
+            {"area_id": "ar-1", "floor_id": "fl-1", "area_name": "Lobby", "description": None, "is_active": True}
+        )
+        store["bins"].extend([
+            {"bin_id": "bin-hw", "station_id": "st-1", "area_id": "ar-1", "category_id": "cat-pl", "capacity_liters": 60.0, "is_active": True},
+            {"bin_id": "bin-sim", "station_id": "st-1", "area_id": "ar-1", "category_id": "cat-pa", "capacity_liters": 60.0, "is_active": True},
+            {"bin_id": "bin-leg", "station_id": "st-1", "area_id": "ar-1", "category_id": "cat-me", "capacity_liters": 60.0, "is_active": True},
+            {"bin_id": "bin-off", "station_id": "st-1", "area_id": "ar-1", "category_id": "cat-ge", "capacity_liters": 60.0, "is_active": False},
+        ])
+        store["bin_status"] = [
+            {"bin_id": "bin-hw", "fill_percentage": 50.0, "operational_status": "NORMAL", "reading_source": "HARDWARE", "measured_at": fresh_iso, "updated_at": fresh_iso},
+            {"bin_id": "bin-sim", "fill_percentage": 35.0, "operational_status": "NORMAL", "reading_source": "SIMULATED", "measured_at": fresh_iso, "updated_at": fresh_iso},
+            {"bin_id": "bin-leg", "fill_percentage": 75.0, "operational_status": "NORMAL", "reading_source": "LEGACY", "measured_at": fresh_iso, "updated_at": fresh_iso},
+        ]
+        fake = _MutableFakeSupabase(store)
+        monkeypatch.setattr(db, "client", fake)
+
+        res = client.get("/api/dashboard/live-status")
+        assert res.status_code == 200
+        bins = res.json()["stations"][0]["floors"][0]["disposal_areas"][0]["bins"]
+        by_id = {b["bin_id"]: b for b in bins}
+        assert set(by_id.keys()) == {"bin-hw", "bin-sim", "bin-leg"}
+        assert by_id["bin-hw"]["reading_source"] == "HARDWARE"
+        assert by_id["bin-sim"]["reading_source"] == "SIMULATED"
+        assert by_id["bin-leg"]["reading_source"] == "LEGACY"
+        assert all(b["is_active"] is True for b in bins)
+        assert by_id["bin-hw"]["fill_percentage"] == 50.0
+        assert by_id["bin-hw"]["operational_status"] == "NORMAL"
 
     def test_admin_station_image_url_persists_and_exposes_in_live_status(self, monkeypatch):
         monkeypatch.setattr(db, "use_fixtures", False)

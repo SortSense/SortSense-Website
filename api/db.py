@@ -963,8 +963,10 @@ class DatabaseManager:
                 if isinstance(bs, dict):
                     ts = bs.get("measured_at") or bs.get("updated_at")
                     raw_src = bs.get("reading_source")
-                    if raw_src in ("HARDWARE", "SIMULATED"):
-                        reading_source = raw_src
+                    if isinstance(raw_src, str):
+                        norm_src = raw_src.strip().upper()
+                        if norm_src in ("HARDWARE", "SIMULATED", "LEGACY"):
+                            reading_source = norm_src
                     parsed_ts = _parse_iso_timestamp(ts)
                     if parsed_ts is not None and (latest_dt is None or parsed_ts > latest_dt):
                         latest_dt = parsed_ts
@@ -1003,6 +1005,7 @@ class DatabaseManager:
                     fill_percentage=float(fill_val) if fill_val is not None else None,
                     operational_status=op_status,
                     reading_source=reading_source,
+                    is_active=bool(b.get("is_active", True)),
                     updated_at=ts,
                 )
 
